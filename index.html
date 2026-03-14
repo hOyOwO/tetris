@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>테트리스</title>
+  <title>테트리스 v1.3.0</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -130,9 +130,166 @@
       .mobile-controls { display: flex; }
       .mobile-hud { display: block; }
     }
+
+    /* ── 버전 뱃지 ── */
+    #version-badge {
+      position: fixed;
+      bottom: 10px; right: 12px;
+      background: #16213e;
+      border: 1px solid #e94560;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: #e94560;
+      cursor: pointer;
+      z-index: 100;
+      letter-spacing: 0.5px;
+      transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #version-badge:hover { background: #e94560; color: #fff; }
+
+    /* ── 릴리즈 노트 모달 ── */
+    #release-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    #release-modal.open { display: flex; }
+    .release-box {
+      background: #16213e;
+      border: 2px solid #e94560;
+      border-radius: 14px;
+      width: 100%; max-width: 380px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    .release-box h2 {
+      color: #e94560;
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+    .release-box .subtitle {
+      color: #666;
+      font-size: 12px;
+      margin-bottom: 20px;
+    }
+    .release-entry {
+      margin-bottom: 20px;
+      border-left: 3px solid #e94560;
+      padding-left: 14px;
+    }
+    .release-entry .ver {
+      font-size: 14px;
+      font-weight: bold;
+      color: #fff;
+    }
+    .release-entry .ver .latest {
+      background: #e94560;
+      color: #fff;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+    .release-entry .date {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    .release-entry ul {
+      padding-left: 16px;
+      list-style: disc;
+    }
+    .release-entry ul li {
+      font-size: 13px;
+      color: #ccc;
+      line-height: 1.7;
+    }
+    .release-close {
+      display: block;
+      width: 100%;
+      margin-top: 16px;
+      padding: 10px;
+      background: #e94560;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .release-close:active { background: #c73652; }
   </style>
 </head>
 <body>
+
+<!-- 버전 뱃지 -->
+<div id="version-badge" onclick="document.getElementById('release-modal').classList.add('open')">
+  v1.3.0 · 릴리즈 노트
+</div>
+
+<!-- 릴리즈 노트 모달 -->
+<div id="release-modal">
+  <div class="release-box">
+    <h2>🎮 테트리스 릴리즈 노트</h2>
+    <div class="subtitle">hOyOwO/tetris · GitHub Pages</div>
+
+    <div class="release-entry">
+      <div class="ver">v1.3.0 <span class="latest">LATEST</span></div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>모바일 반응성 전면 개선 — <code>requestAnimationFrame</code> 기반 60fps 게임 루프 적용</li>
+        <li>실시간 드래그 — 손가락 움직임에 즉시 피스 이동 (<code>touchmove</code>)</li>
+        <li>방향 버튼 장누르기 연속 입력 지원</li>
+        <li>아래로 천천히 드래그 시 소프트드롭, 빠르게 쓸어내리면 즉시 낙하</li>
+        <li>탭으로 회전, 위 스와이프로 회전</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.2.0</div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>모바일 화면 버튼 추가 (◀ ▼ ▶ 🔃 ⚡ ⏸ 🔄)</li>
+        <li>반응형 캔버스 — 폰 화면 크기에 맞게 자동 조절</li>
+        <li>스와이프 제스처 지원 (좌우 이동, 회전, 즉시낙하)</li>
+        <li>모바일 상단 HUD (점수 · 레벨 · 줄) 추가</li>
+        <li><code>touch-action: none</code>으로 스크롤 완전 차단</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.1.0</div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>방향키 및 스페이스바 입력 시 브라우저 스크롤 방지</li>
+        <li>사파리 등 모바일 브라우저 화면 고정 처리</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.0.0</div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>테트리스 최초 출시</li>
+        <li>고스트 피스, 레벨 시스템, 점수 계산</li>
+        <li>다음 피스 미리보기</li>
+        <li>GitHub Pages 배포</li>
+      </ul>
+    </div>
+
+    <button class="release-close" onclick="document.getElementById('release-modal').classList.remove('open')">닫기</button>
+  </div>
+</div>
 
 <div class="mobile-hud">
   <div class="mobile-hud-inner">
