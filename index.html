@@ -889,8 +889,8 @@ function merge() {
 function detectAndAnimateClear() {
   const rows = [];
   for (let r = ROWS-1; r >= 0; r--) {
-    // 모든 칸이 1~7 (일반 블록)로 채워진 행만 완성
-    if (grid[r].every(c => c > 0 && c < 8)) rows.push(r);
+    // 모든 칸이 채워진 행 (일반 블록 1~7 또는 아이템 8~9)
+    if (grid[r].every(c => c > 0)) rows.push(r);
   }
   if (rows.length) {
     clearingRows  = rows;
@@ -964,29 +964,23 @@ function trySpawnItem() {
   const spawnRate = getItemSpawnRate(level);
   if (Math.random() > spawnRate) return;
 
-  // 이미 블록이 쌓인 행들 중 아직 완성되지 않은 행 목록 수집
-  // → 그 행의 빈 칸에 아이템을 심어서 "블록 사이사이" 느낌
+  // 이미 블록이 쌓인 행들 중 기존 블록을 대체할 위치 찾기
+  // → 아이템이 기존 블록을 대체하므로 로우를 완성하기 위해서는 실제로 일을 해야 함
   const candidates = [];  // [{ row, col }, ...]
   for (let r = ROWS - 1; r >= Math.floor(ROWS / 2); r--) {
-    const filledCount = grid[r].filter(c => c !== 0).length;
-    // 일부는 채워져 있고 일부는 비어 있는 행 (2개 이상 채워져 있고 완성 안 된 행)
+    const filledCount = grid[r].filter(c => c !== 0 && c < 8).length;  // 일반 블록만 카운트
+    // 일부는 채워져 있고 일부는 비어 있는 행 (2개 이상의 일반 블록, 완성 안 된 행)
     if (filledCount >= 2 && filledCount < COLS) {
       for (let c = 0; c < COLS; c++) {
-        if (grid[r][c] === 0) candidates.push({ r, c });
+        // 일반 블록 위치만 선택 (아이템이 아닌 블록)
+        if (grid[r][c] > 0 && grid[r][c] < 8) candidates.push({ r, c });
       }
     }
   }
 
-  if (candidates.length === 0) {
-    // 후보가 없으면 바닥 빈 칸에라도 배치
-    for (let c = 0; c < COLS; c++) {
-      if (grid[ROWS - 1][c] === 0) { candidates.push({ r: ROWS - 1, c }); }
-    }
-  }
+  if (candidates.length === 0) return;  // 후보가 없으면 포기
 
-  if (candidates.length === 0) return;  // 빈 칸 자체가 없으면 포기
-
-  // 후보 중 랜덤 선택
+  // 후보 중 랜덤 선택하여 그 블록을 아이템으로 대체
   const { r, c } = candidates[Math.floor(Math.random() * candidates.length)];
   // 아이템 종류 결정 (30% CLEAR, 70% SLOW)
   grid[r][c] = Math.random() < ITEM_CLEAR_PROBABILITY ? ITEM_CLEAR_TYPE : ITEM_SLOW_TYPE;
