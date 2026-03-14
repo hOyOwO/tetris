@@ -995,9 +995,8 @@ function activateItem(type) {
     showItemPopup('⏱️ 블록이 느려져요! (10초)');
   } else if (type === 'clear') {
     showItemPopup('💥 전체 초기화!');
-    // 즉시 실행
+    // 블록만 초기화 (레벨/줄은 유지)
     grid = createGrid();
-    lines = 0;
     score += 2000 * level;  // 클리어 보너스
     updateHUD();
   }
