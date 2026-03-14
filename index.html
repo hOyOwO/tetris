@@ -492,6 +492,10 @@
     <div class="hud-item"><div class="hud-label">레벨</div><div class="hud-val" id="level-m">1</div></div>
     <div class="hud-item"><div class="hud-label">줄</div><div class="hud-val" id="lines-m">0</div></div>
   </div>
+  <div style="margin-top: 8px; text-align: center;">
+    <div style="font-size: 10px; color: #e94560; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px;">다음</div>
+    <canvas id="next-mobile" width="80" height="80" style="border: 1px solid #e94560; border-radius: 6px; background: #0f0f1a; display: block; margin: 0 auto;"></canvas>
+  </div>
 </div>
 
 <div class="game-wrapper">
@@ -551,6 +555,8 @@ const boardEl = document.getElementById('board');
 const ctx     = boardEl.getContext('2d');
 const nextEl  = document.getElementById('next');
 const nctx    = nextEl.getContext('2d');
+const nextMobileEl = document.getElementById('next-mobile');
+const nmctx = nextMobileEl ? nextMobileEl.getContext('2d') : null;
 
 let grid, piece, nextPiece, score, level, lines;
 let paused = false, gameOver = true;
@@ -685,19 +691,39 @@ function render() {
 }
 
 function drawNext() {
+  // 데스크톱 다음 블록 (큰 캔버스)
   nctx.clearRect(0, 0, nextEl.width, nextEl.height);
-  if (!nextPiece) return;
-  const ns = 22;
-  const ox = Math.floor((nextEl.width/ns  - nextPiece.shape[0].length) / 2);
-  const oy = Math.floor((nextEl.height/ns - nextPiece.shape.length)    / 2);
-  nextPiece.shape.forEach((row,r) => row.forEach((cell,c) => {
-    if (!cell) return;
-    nctx.fillStyle = COLORS[nextPiece.id];
-    nctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, ns-2, ns-2);
-    nctx.fillStyle = 'rgba(255,255,255,0.18)';
-    nctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, ns-2, 3);
-    nctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, 3, ns-2);
-  }));
+  if (nextPiece) {
+    const ns = 22;
+    const ox = Math.floor((nextEl.width/ns  - nextPiece.shape[0].length) / 2);
+    const oy = Math.floor((nextEl.height/ns - nextPiece.shape.length)    / 2);
+    nextPiece.shape.forEach((row,r) => row.forEach((cell,c) => {
+      if (!cell) return;
+      nctx.fillStyle = COLORS[nextPiece.id];
+      nctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, ns-2, ns-2);
+      nctx.fillStyle = 'rgba(255,255,255,0.18)';
+      nctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, ns-2, 3);
+      nctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, 3, ns-2);
+    }));
+  }
+
+  // 모바일 다음 블록 (작은 캔버스)
+  if (nmctx) {
+    nmctx.clearRect(0, 0, nextMobileEl.width, nextMobileEl.height);
+    if (nextPiece) {
+      const ns = 16;
+      const ox = Math.floor((nextMobileEl.width/ns  - nextPiece.shape[0].length) / 2);
+      const oy = Math.floor((nextMobileEl.height/ns - nextPiece.shape.length)    / 2);
+      nextPiece.shape.forEach((row,r) => row.forEach((cell,c) => {
+        if (!cell) return;
+        nmctx.fillStyle = COLORS[nextPiece.id];
+        nmctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, ns-2, ns-2);
+        nmctx.fillStyle = 'rgba(255,255,255,0.18)';
+        nmctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, ns-2, 3);
+        nmctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, 3, ns-2);
+      }));
+    }
+  }
 }
 
 function updateHUD() {
