@@ -618,8 +618,11 @@ let itemStartTime = null;    // 아이템 시작 시간
 const ITEM_SLOW_DURATION = 10000;  // 10초 (ms)
 const ITEM_SLOW_RATE = 0.3;  // 원래 속도의 30% = 3배 느림
 const ITEM_SPAWN_LEVEL = 4;  // 레벨 4부터 아이템 드롭
-const ITEM_SPAWN_RATE = 0.15;  // 15% 확률로 아이템 드롭
-const ITEM_CLEAR_RATE = 0.05; // 5%: 드롭된 아이템 중 5%가 CLEAR (15% * 5% = 0.75%)
+// 아이템 확률: 레벨 4: 5%, 5: 4%, 6: 3%, 7: 2%, 8+: 1%
+// 아이템 타입: 8 = slow, 9 = clear (70% slow, 30% clear)
+const ITEM_SLOW_TYPE = 8;
+const ITEM_CLEAR_TYPE = 9;
+const ITEM_CLEAR_PROBABILITY = 0.3;  // 30% clear, 70% slow
 
 // RAF 기반 게임 루프
 let rafId = null;
@@ -648,6 +651,16 @@ function getDropInterval() {
     }
   }
   return interval;
+}
+
+function getItemSpawnRate(lvl) {
+  // 레벨별 아이템 드롭 확률 (낮을수록 희귀)
+  if (lvl < ITEM_SPAWN_LEVEL) return 0;
+  if (lvl === 4) return 0.05;   // 5%
+  if (lvl === 5) return 0.04;   // 4%
+  if (lvl === 6) return 0.03;   // 3%
+  if (lvl === 7) return 0.02;   // 2%
+  return 0.01;  // 8+: 1%
 }
 
 /* ── 반응형 크기 ── */
@@ -710,13 +723,43 @@ function tryRotate() {
 }
 
 /* ── 그리기 ── */
-function drawBlock(context, x, y, color, size) {
+function drawBlock(context, x, y, color, size, isItem = false) {
   size = size || BLOCK;
-  context.fillStyle = color;
-  context.fillRect(x*size+1, y*size+1, size-2, size-2);
-  context.fillStyle = 'rgba(255,255,255,0.18)';
-  context.fillRect(x*size+1, y*size+1, size-2, 4);
-  context.fillRect(x*size+1, y*size+1, 4, size-2);
+
+  // 아이템 블록인 경우 다르게 렌더링
+  if (isItem) {
+    context.fillStyle = color;
+    context.fillRect(x*size+1, y*size+1, size-2, size-2);
+    // 아이템 표시: 별 또는 특수 패턴
+    context.fillStyle = '#ffff00';
+    context.globalAlpha = 0.8;
+    // 아이콘: 중앙에 별 모양
+    drawStar(context, x*size + size/2, y*size + size/2, 5, size/6, size/3);
+    context.globalAlpha = 1.0;
+  } else {
+    // 일반 블록
+    context.fillStyle = color;
+    context.fillRect(x*size+1, y*size+1, size-2, size-2);
+    context.fillStyle = 'rgba(255,255,255,0.18)';
+    context.fillRect(x*size+1, y*size+1, size-2, 4);
+    context.fillRect(x*size+1, y*size+1, 4, size-2);
+  }
+}
+
+function drawStar(context, cx, cy, spikes, outerRadius, innerRadius) {
+  let rot = Math.PI / 2 * 3;
+  let step = Math.PI / spikes;
+  context.beginPath();
+  context.moveTo(cx, cy - outerRadius);
+  for (let i = 0; i < spikes; i++) {
+    context.lineTo(cx + Math.cos(rot) * outerRadius, cy + Math.sin(rot) * outerRadius);
+    rot += step;
+    context.lineTo(cx + Math.cos(rot) * innerRadius, cy + Math.sin(rot) * innerRadius);
+    rot += step;
+  }
+  context.lineTo(cx, cy - outerRadius);
+  context.closePath();
+  context.fill();
 }
 
 function render() {
@@ -739,7 +782,9 @@ function render() {
         ctx.fillStyle = flashOn ? '#ffffff' : '#e94560';
         ctx.fillRect(c*BLOCK+1, r*BLOCK+1, BLOCK-2, BLOCK-2);
       } else if (grid[r][c]) {
-        drawBlock(ctx, c, r, COLORS[grid[r][c]]);
+        const isItem = grid[r][c] === ITEM_SLOW_TYPE || grid[r][c] === ITEM_CLEAR_TYPE;
+        const blockColor = isItem ? (grid[r][c] === ITEM_SLOW_TYPE ? '#0099ff' : '#ff3366') : COLORS[grid[r][c]];
+        drawBlock(ctx, c, r, blockColor, BLOCK, isItem);
       } else {
         ctx.strokeRect(c*BLOCK, r*BLOCK, BLOCK, BLOCK);
       }
@@ -833,6 +878,14 @@ function detectAndAnimateClear() {
 // 애니메이션 끝난 후 실제 제거 + 점수 반영
 function applyClearLines() {
   const cleared = clearingRows.length;
+
+  // 클리어된 라인에 아이템이 있었는지 확인
+  let hasSlowItem = false, hasClearItem = false;
+  for (const row of clearingRows) {
+    if (grid[row].includes(ITEM_SLOW_TYPE)) hasSlowItem = true;
+    if (grid[row].includes(ITEM_CLEAR_TYPE)) hasClearItem = true;
+  }
+
   // 명시적 루프로 그리드 재구성 (splice+spread 방식의 불안정성 제거)
   const rowSet = new Set(clearingRows);
   const kept = [];
@@ -846,6 +899,13 @@ function applyClearLines() {
   clearingRows  = [];
   clearingStart = null;
 
+  // 아이템 발현 (클리어 아이템이 있으면 우선)
+  if (hasClearItem) {
+    activateItem('clear');
+  } else if (hasSlowItem) {
+    activateItem('slow');
+  }
+
   const pts = [0, 100, 300, 500, 800];
   score += (pts[cleared] || 800) * level;
   lines += cleared;
@@ -855,13 +915,21 @@ function applyClearLines() {
 
 function trySpawnItem() {
   if (gameMode !== 'item' || level < ITEM_SPAWN_LEVEL) return;
-  if (Math.random() > ITEM_SPAWN_RATE) return;
 
-  // 아이템 종류 결정 (5% 확률로 CLEAR, 95%로 SLOW)
-  if (Math.random() < ITEM_CLEAR_RATE) {
-    activateItem('clear');
-  } else {
-    activateItem('slow');
+  // 레벨별 확률로 아이템 스폰 (낮을수록 희귀)
+  const spawnRate = getItemSpawnRate(level);
+  if (Math.random() > spawnRate) return;
+
+  // 바닥 행에 아이템 추가 (마지막 행에 랜덤 위치에 아이템 삽입)
+  const bottomRow = ROWS - 1;
+  const itemCol = Math.floor(Math.random() * COLS);
+
+  // 아이템 종류 결정 (30% CLEAR, 70% SLOW)
+  const itemType = Math.random() < ITEM_CLEAR_PROBABILITY ? ITEM_CLEAR_TYPE : ITEM_SLOW_TYPE;
+
+  // 바닥에 빈 칸이 있으면 그곳에 아이템 추가
+  if (grid[bottomRow][itemCol] === 0) {
+    grid[bottomRow][itemCol] = itemType;
   }
 }
 
