@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>테트리스 v1.6.0</title>
+  <title>테트리스 v1.6.1</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -319,7 +319,7 @@
 <!-- 하단 버튼 -->
 <div id="bottom-btns">
   <div class="bottom-btn" onclick="openLB()">🏆 리더보드</div>
-  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.6.0 · 릴리즈 노트</div>
+  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.6.1 · 릴리즈 노트</div>
 </div>
 
 <!-- 리더보드 모달 -->
@@ -352,7 +352,18 @@
     <div class="subtitle">hOyOwO/tetris · GitHub Pages</div>
 
     <div class="release-entry">
-      <div class="ver">v1.6.0 <span class="latest">LATEST</span></div>
+      <div class="ver">v1.6.1 <span class="latest">LATEST</span></div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>라인 클리어 이펙트 속도 개선 — 180ms로 단축</li>
+        <li>3~4줄 동시 클리어 버그 수정 — splice 인덱스 밀림 문제 해결</li>
+        <li>벽킥(Wall Kick) 추가 — 벽에 붙어 있어도 ±2칸 오프셋으로 회전 시도</li>
+        <li>회전 방향 반시계 방향으로 변경</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.6.0</div>
       <div class="date">2026-03-14</div>
       <ul>
         <li>라인 클리어 이펙트 추가 — 줄 완성 시 흰색→빨강 깜빡임 후 사라짐</li>
@@ -543,7 +554,7 @@ let lockTimer  = null;
 let lockResets = 0;
 
 // 라인 클리어 애니메이션
-const CLEAR_DURATION = 380; // ms
+const CLEAR_DURATION = 180; // ms
 let clearingRows  = [];     // 지우는 행 인덱스 배열
 let clearingStart = null;   // 애니메이션 시작 타임스탬프
 
@@ -585,11 +596,27 @@ function collide(x, y, shape) {
   return false;
 }
 
+// 반시계 방향 회전
 function rotate(shape) {
   const n=shape.length, m=shape[0].length;
   const rot = Array.from({length:m}, () => Array(n).fill(0));
-  for (let r=0;r<n;r++) for (let c=0;c<m;c++) rot[c][n-1-r] = shape[r][c];
+  for (let r=0;r<n;r++) for (let c=0;c<m;c++) rot[m-1-c][r] = shape[r][c];
   return rot;
+}
+
+// 벽킥 포함 회전 시도 (±1, ±2칸 오프셋으로 재시도)
+function tryRotate() {
+  if (!piece) return;
+  const rot = rotate(piece.shape);
+  for (const kick of [0, 1, -1, 2, -2]) {
+    if (!collide(piece.x + kick, piece.y, rot)) {
+      piece.x    += kick;
+      piece.shape = rot;
+      resetLockIfNeeded();
+      render();
+      return;
+    }
+  }
 }
 
 /* ── 그리기 ── */
@@ -693,11 +720,11 @@ function detectAndAnimateClear() {
 // 애니메이션 끝난 후 실제 제거 + 점수 반영
 function applyClearLines() {
   const cleared = clearingRows.length;
-  // 인덱스 내림차순 정렬로 안전하게 제거
-  [...clearingRows].sort((a, b) => b - a).forEach(r => {
-    grid.splice(r, 1);
-    grid.unshift(Array(COLS).fill(0));
-  });
+  // filter로 한 번에 제거 (splice 반복 시 인덱스 밀림 버그 방지)
+  const newGrid = grid.filter((_, r) => !clearingRows.includes(r));
+  while (newGrid.length < ROWS) newGrid.unshift(Array(COLS).fill(0));
+  grid.splice(0, ROWS, ...newGrid);
+
   clearingRows  = [];
   clearingStart = null;
 
@@ -1001,11 +1028,9 @@ document.addEventListener('keydown', e => {
       if (!collide(piece.x+1, piece.y, piece.shape)) { piece.x++; resetLockIfNeeded(); render(); }
       break;
     case 'ArrowDown':  drop(); render(); break;
-    case 'ArrowUp': {
-      const rot = rotate(piece.shape);
-      if (!collide(piece.x, piece.y, rot)) { piece.shape = rot; resetLockIfNeeded(); render(); }
+    case 'ArrowUp':
+      tryRotate();
       break;
-    }
     case ' ': hardDrop(); break;
   }
 });
@@ -1087,9 +1112,8 @@ boardEl.addEventListener('touchend', e => {
   const dy = e.changedTouches[0].clientY - touchStartY;
 
   if (!isDragging && totalDist < TAP_MAX_DIST && elapsed < TAP_MAX_TIME) {
-    // 탭 → 회전
-    const rot = rotate(piece.shape);
-    if (!collide(piece.x, piece.y, rot)) { piece.shape = rot; resetLockIfNeeded(); render(); }
+    // 탭 → 회전 (벽킥 포함)
+    tryRotate();
   } else if (dy > BLOCK * 3 && Math.abs(dy) > Math.abs(e.changedTouches[0].clientX - touchStartX)) {
     // 빠른 아래 스와이프 → 즉시 낙하
     hardDrop();
@@ -1146,7 +1170,7 @@ function makeSingleBtn(id, action) {
 makeRepeatBtn('btnLeft',   () => { if (!collide(piece.x-1, piece.y, piece.shape)) { piece.x--; resetLockIfNeeded(); render(); } });
 makeRepeatBtn('btnRight',  () => { if (!collide(piece.x+1, piece.y, piece.shape)) { piece.x++; resetLockIfNeeded(); render(); } });
 makeRepeatBtn('btnDown',   () => { drop(); render(); }, 100, 60);
-makeSingleBtn('btnRotate', () => { const rot=rotate(piece.shape); if(!collide(piece.x,piece.y,rot)){piece.shape=rot;resetLockIfNeeded();render();} });
+makeSingleBtn('btnRotate', () => tryRotate());
 makeSingleBtn('btnDrop',   () => { hardDrop(); });
 makeSingleBtn('btnPause',  () => {
   if (gameOver) return;
