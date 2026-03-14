@@ -812,8 +812,13 @@ async function saveLB(newEntry) {
 async function openLB() {
   document.getElementById('lb-modal').classList.add('open');
   document.getElementById('lb-content').innerHTML = '<div class="lb-loading">불러오는 중...</div>';
-  const lb = await fetchLB();
-  renderLB(lb);
+  try {
+    // GitHub API 직접 호출 → CDN 캐시 없이 항상 최신 데이터
+    const { lb } = await fetchLBFresh();
+    renderLB(lb);
+  } catch {
+    renderLB([]);
+  }
 }
 
 function renderLB(lb) {
