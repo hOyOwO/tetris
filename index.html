@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>테트리스 v1.4.0</title>
+  <title>테트리스 v1.6.0</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -319,7 +319,7 @@
 <!-- 하단 버튼 -->
 <div id="bottom-btns">
   <div class="bottom-btn" onclick="openLB()">🏆 리더보드</div>
-  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.5.2 · 릴리즈 노트</div>
+  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.6.0 · 릴리즈 노트</div>
 </div>
 
 <!-- 리더보드 모달 -->
@@ -352,7 +352,51 @@
     <div class="subtitle">hOyOwO/tetris · GitHub Pages</div>
 
     <div class="release-entry">
-      <div class="ver">v1.5.0 <span class="latest">LATEST</span></div>
+      <div class="ver">v1.6.0 <span class="latest">LATEST</span></div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>라인 클리어 이펙트 추가 — 줄 완성 시 흰색→빨강 깜빡임 후 사라짐</li>
+        <li>애니메이션 중 게임 일시 동결로 자연스러운 연출</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.5.4</div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>리더보드 등록 속도 개선 — 게임 오버 시점에 SHA 백그라운드 선읽기</li>
+        <li>등록 버튼 누르는 즉시 반응 (PUT 한 번만 호출)</li>
+        <li>SHA 충돌 시 자동 1회 재시도</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.5.3</div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>리더보드 열람 시 CDN 캐시 우회 — GitHub API 직접 호출로 항상 최신 데이터 표시</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.5.2</div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>리더보드 중복 덮어쓰기 버그 수정 — 저장 전 항상 최신 파일 읽기</li>
+        <li>등록 실패 시 오류 메시지 표시</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.5.1</div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>리더보드 CORS 문제 수정 — jsonblob → GitHub 저장소 직접 사용</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.5.0</div>
       <div class="date">2026-03-14</div>
       <ul>
         <li>공유 리더보드 추가 — 전체 참여자 TOP 10 순위 표시</li>
@@ -493,10 +537,15 @@ let rafId = null;
 let lastDropTime = 0;
 
 // 락 딜레이
-const LOCK_DELAY   = 500;  // 바닥 닿은 후 고정까지 대기(ms)
-const LOCK_MAX_RESETS = 15; // 무한 회피 방지: 최대 리셋 횟수
-let lockTimer      = null; // 락 딜레이 시작 시각 (null = 락 중 아님)
-let lockResets     = 0;    // 현재 피스의 락 리셋 횟수
+const LOCK_DELAY      = 500;
+const LOCK_MAX_RESETS = 15;
+let lockTimer  = null;
+let lockResets = 0;
+
+// 라인 클리어 애니메이션
+const CLEAR_DURATION = 380; // ms
+let clearingRows  = [];     // 지우는 행 인덱스 배열
+let clearingStart = null;   // 애니메이션 시작 타임스탬프
 
 function getDropInterval() { return Math.max(80, 800 - (level - 1) * 70); }
 
@@ -555,14 +604,33 @@ function drawBlock(context, x, y, color, size) {
 
 function render() {
   ctx.clearRect(0, 0, boardEl.width, boardEl.height);
-  // 격자
   ctx.strokeStyle = '#16213e';
-  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
-    if (grid[r][c]) drawBlock(ctx, c, r, COLORS[grid[r][c]]);
-    else ctx.strokeRect(c*BLOCK, r*BLOCK, BLOCK, BLOCK);
+
+  // 클리어 애니메이션 진행률 계산
+  let flashOn = false;
+  if (clearingRows.length > 0 && clearingStart !== null) {
+    const t = (performance.now() - clearingStart) / CLEAR_DURATION;
+    // 4번 깜빡 (0→1 사이에 8단계)
+    flashOn = Math.floor(t * 8) % 2 === 0;
   }
-  // 고스트
-  if (piece) {
+
+  for (let r = 0; r < ROWS; r++) {
+    const isClearing = clearingRows.includes(r);
+    for (let c = 0; c < COLS; c++) {
+      if (isClearing) {
+        // 깜빡이는 행 — 흰색↔빨강 교차
+        ctx.fillStyle = flashOn ? '#ffffff' : '#e94560';
+        ctx.fillRect(c*BLOCK+1, r*BLOCK+1, BLOCK-2, BLOCK-2);
+      } else if (grid[r][c]) {
+        drawBlock(ctx, c, r, COLORS[grid[r][c]]);
+      } else {
+        ctx.strokeRect(c*BLOCK, r*BLOCK, BLOCK, BLOCK);
+      }
+    }
+  }
+
+  // 고스트 + 현재 피스 (애니메이션 중엔 숨김)
+  if (piece && clearingRows.length === 0) {
     let gy = piece.y;
     while (!collide(piece.x, gy+1, piece.shape)) gy++;
     piece.shape.forEach((row,r) => row.forEach((cell,c) => {
@@ -571,7 +639,6 @@ function render() {
         ctx.fillRect((piece.x+c)*BLOCK+1, (gy+r)*BLOCK+1, BLOCK-2, BLOCK-2);
       }
     }));
-    // 현재 피스
     piece.shape.forEach((row,r) => row.forEach((cell,c) => {
       if (cell) drawBlock(ctx, piece.x+c, piece.y+r, COLORS[piece.id]);
     }));
@@ -610,22 +677,35 @@ function merge() {
   }));
 }
 
-function clearLines() {
-  let cleared = 0;
+// 완성된 행 탐지만 (아직 제거 안 함) → 애니메이션 시작
+function detectAndAnimateClear() {
+  const rows = [];
   for (let r = ROWS-1; r >= 0; r--) {
-    if (grid[r].every(c => c !== 0)) {
-      grid.splice(r, 1);
-      grid.unshift(Array(COLS).fill(0));
-      cleared++; r++;
-    }
+    if (grid[r].every(c => c !== 0)) rows.push(r);
   }
-  if (cleared) {
-    const pts = [0, 100, 300, 500, 800];
-    score += (pts[cleared] || 800) * level;
-    lines += cleared;
-    level = Math.floor(lines / 10) + 1;
-    updateHUD();
+  if (rows.length) {
+    clearingRows  = rows;
+    clearingStart = performance.now();
   }
+  return rows.length > 0;
+}
+
+// 애니메이션 끝난 후 실제 제거 + 점수 반영
+function applyClearLines() {
+  const cleared = clearingRows.length;
+  // 인덱스 내림차순 정렬로 안전하게 제거
+  [...clearingRows].sort((a, b) => b - a).forEach(r => {
+    grid.splice(r, 1);
+    grid.unshift(Array(COLS).fill(0));
+  });
+  clearingRows  = [];
+  clearingStart = null;
+
+  const pts = [0, 100, 300, 500, 800];
+  score += (pts[cleared] || 800) * level;
+  lines += cleared;
+  level  = Math.floor(lines / 10) + 1;
+  updateHUD();
 }
 
 function spawnNext() {
@@ -641,8 +721,9 @@ function spawnNext() {
 function lockPiece() {
   lockTimer = null;
   merge();
-  clearLines();
-  spawnNext();
+  const hasClear = detectAndAnimateClear();
+  if (!hasClear) spawnNext(); // 클리어 없으면 바로 다음 피스
+  // 클리어 있으면 gameLoop이 애니메이션 끝난 후 spawnNext 호출
 }
 
 function drop() {
@@ -658,10 +739,11 @@ function drop() {
 
 function hardDrop() {
   while (!collide(piece.x, piece.y+1, piece.shape)) piece.y++;
-  lockTimer = null;
+  lockTimer  = null;
   lockResets = 0;
-  merge(); clearLines();
-  spawnNext();
+  merge();
+  const hasClear = detectAndAnimateClear();
+  if (!hasClear) spawnNext();
   lastDropTime = performance.now();
   render();
 }
@@ -678,7 +760,20 @@ function resetLockIfNeeded() {
 function gameLoop(ts) {
   if (gameOver || paused) return;
 
-  // 락 딜레이 만료 체크
+  // ① 라인 클리어 애니메이션 진행 중
+  if (clearingRows.length > 0) {
+    if (ts - clearingStart >= CLEAR_DURATION) {
+      // 애니메이션 종료 → 실제 제거 후 다음 피스
+      applyClearLines();
+      spawnNext();
+      lastDropTime = ts;
+    }
+    render();
+    rafId = requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  // ② 락 딜레이 만료 체크
   if (lockTimer !== null && ts - lockTimer >= LOCK_DELAY) {
     lockPiece();
     lastDropTime = ts;
@@ -687,7 +782,7 @@ function gameLoop(ts) {
     return;
   }
 
-  // 일반 중력 드롭
+  // ③ 일반 중력 드롭
   if (ts - lastDropTime >= getDropInterval()) {
     drop();
     lastDropTime = ts;
@@ -699,9 +794,11 @@ function gameLoop(ts) {
 
 function startLoop() {
   if (rafId) cancelAnimationFrame(rafId);
-  lastDropTime = performance.now();
-  lockTimer    = null;
-  lockResets   = 0;
+  lastDropTime  = performance.now();
+  lockTimer     = null;
+  lockResets    = 0;
+  clearingRows  = [];
+  clearingStart = null;
   rafId = requestAnimationFrame(gameLoop);
 }
 
