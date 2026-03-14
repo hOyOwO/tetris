@@ -9,6 +9,7 @@
     html, body {
       background: #1a1a2e;
       min-height: 100vh;
+      height: 100%;
       font-family: 'Segoe UI', sans-serif;
       color: #eee;
       overflow: hidden;
@@ -16,15 +17,12 @@
       user-select: none;
       -webkit-user-select: none;
     }
-
-    /* ── 데스크톱 ── */
     .game-wrapper {
       display: flex;
       justify-content: center;
       align-items: flex-start;
       gap: 24px;
       padding: 20px;
-      min-height: 100vh;
     }
     canvas#board {
       border: 2px solid #e94560;
@@ -52,85 +50,68 @@
       text-transform: uppercase;
       margin-bottom: 6px;
     }
-    .score-value {
-      font-size: 22px;
-      font-weight: bold;
-      color: #fff;
-    }
-    canvas#next {
-      background: #0f0f1a;
-      display: block;
-      margin: 0 auto;
-    }
-    .controls-hint {
-      font-size: 11px;
-      line-height: 2;
-      color: #aaa;
-    }
+    .score-value { font-size: 22px; font-weight: bold; color: #fff; }
+    canvas#next { background: #0f0f1a; display: block; margin: 0 auto; }
+    .controls-hint { font-size: 11px; line-height: 2; color: #aaa; }
     .controls-hint span { color: #e94560; }
     .btn {
-      display: block;
-      width: 100%;
-      padding: 10px;
-      background: #e94560;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      text-align: center;
-      letter-spacing: 1px;
+      display: block; width: 100%; padding: 10px;
+      background: #e94560; color: #fff; border: none; border-radius: 6px;
+      font-size: 14px; font-weight: bold; cursor: pointer; text-align: center;
       -webkit-tap-highlight-color: transparent;
     }
     .btn:active { background: #c73652; }
 
-    /* ── 모바일 컨트롤 버튼 (기본 숨김) ── */
+    /* 모바일 컨트롤 */
     .mobile-controls {
       display: none;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
-      padding: 12px 0 8px;
+      gap: 8px;
+      padding: 10px 0 6px;
     }
-    .ctrl-row {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-    }
+    .ctrl-row { display: flex; gap: 8px; justify-content: center; }
     .ctrl-btn {
-      width: 64px;
-      height: 64px;
+      width: 64px; height: 64px;
       background: #16213e;
       border: 2px solid #e94560;
       border-radius: 12px;
-      color: #fff;
-      font-size: 26px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      color: #fff; font-size: 26px;
+      display: flex; align-items: center; justify-content: center;
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
-      transition: background 0.1s;
-      user-select: none;
-      -webkit-user-select: none;
+      user-select: none; -webkit-user-select: none;
     }
-    .ctrl-btn:active { background: #e94560; }
-    .ctrl-btn.wide {
-      width: 140px;
-      font-size: 20px;
-    }
-    .ctrl-btn.small {
-      width: 52px;
-      height: 52px;
-      font-size: 18px;
-    }
+    .ctrl-btn:active, .ctrl-btn.pressed { background: #e94560; }
+    .ctrl-btn.wide { width: 140px; font-size: 18px; }
+    .ctrl-btn.small { width: 52px; height: 52px; font-size: 18px; }
 
-    /* ── 오버레이 메시지 ── */
+    /* 모바일 HUD */
+    .mobile-hud {
+      display: none;
+      width: 100%;
+      max-width: 320px;
+      margin: 0 auto 6px;
+    }
+    .mobile-hud-inner {
+      display: flex;
+    }
+    .hud-item {
+      flex: 1;
+      background: #16213e;
+      border: 1px solid #e94560;
+      text-align: center;
+      padding: 4px 2px;
+    }
+    .hud-item:first-child { border-radius: 8px 0 0 8px; }
+    .hud-item:last-child  { border-radius: 0 8px 8px 0; }
+    .hud-label { font-size: 9px; color: #e94560; letter-spacing: 1px; text-transform: uppercase; }
+    .hud-val   { font-size: 16px; font-weight: bold; }
+
+    /* 오버레이 */
     #message {
-      position: fixed;
-      top: 50%; left: 50%;
+      position: fixed; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       background: #1a1a2eee;
       border: 2px solid #e94560;
@@ -138,93 +119,49 @@
       border-radius: 12px;
       text-align: center;
       z-index: 10;
-      width: 90%;
-      max-width: 320px;
+      width: 90%; max-width: 320px;
     }
     #message h2 { font-size: 26px; color: #e94560; margin-bottom: 10px; }
-    #message p { color: #aaa; margin-bottom: 20px; font-size: 14px; }
+    #message p  { color: #aaa; margin-bottom: 20px; font-size: 14px; }
 
-    /* ── 모바일 레이아웃 ── */
     @media (max-width: 600px) {
-      html, body { overflow: hidden; }
-      .game-wrapper {
-        flex-direction: column;
-        align-items: center;
-        gap: 0;
-        padding: 8px 8px 0;
-      }
+      .game-wrapper { flex-direction: column; align-items: center; gap: 0; padding: 6px 6px 0; }
       .side-panel { display: none; }
       .mobile-controls { display: flex; }
-
-      /* 상단 점수 바 */
-      .mobile-hud {
-        display: flex !important;
-        gap: 0;
-        width: 100%;
-        max-width: 300px;
-        margin-bottom: 6px;
-      }
-      .hud-item {
-        flex: 1;
-        background: #16213e;
-        border: 1px solid #e94560;
-        text-align: center;
-        padding: 4px 2px;
-      }
-      .hud-item:first-child { border-radius: 8px 0 0 8px; }
-      .hud-item:last-child  { border-radius: 0 8px 8px 0; }
-      .hud-label { font-size: 9px; color: #e94560; letter-spacing: 1px; text-transform: uppercase; }
-      .hud-val   { font-size: 16px; font-weight: bold; }
+      .mobile-hud { display: block; }
     }
   </style>
 </head>
 <body>
 
-<!-- 모바일 HUD (점수/레벨/줄) -->
-<div class="mobile-hud" style="display:none; justify-content:center; padding: 0 8px;">
-  <div class="hud-item"><div class="hud-label">점수</div><div class="hud-val" id="score-m">0</div></div>
-  <div class="hud-item"><div class="hud-label">레벨</div><div class="hud-val" id="level-m">1</div></div>
-  <div class="hud-item"><div class="hud-label">줄</div><div class="hud-val" id="lines-m">0</div></div>
+<div class="mobile-hud">
+  <div class="mobile-hud-inner">
+    <div class="hud-item"><div class="hud-label">점수</div><div class="hud-val" id="score-m">0</div></div>
+    <div class="hud-item"><div class="hud-label">레벨</div><div class="hud-val" id="level-m">1</div></div>
+    <div class="hud-item"><div class="hud-label">줄</div><div class="hud-val" id="lines-m">0</div></div>
+  </div>
 </div>
 
 <div class="game-wrapper">
   <canvas id="board" width="300" height="600"></canvas>
-
-  <!-- 데스크톱 사이드 패널 -->
   <div class="side-panel">
-    <div class="panel-box">
-      <h3>점수</h3>
-      <div class="score-value" id="score">0</div>
-    </div>
-    <div class="panel-box">
-      <h3>레벨</h3>
-      <div class="score-value" id="level">1</div>
-    </div>
-    <div class="panel-box">
-      <h3>줄</h3>
-      <div class="score-value" id="lines">0</div>
-    </div>
-    <div class="panel-box">
-      <h3>다음</h3>
-      <canvas id="next" width="100" height="100"></canvas>
-    </div>
+    <div class="panel-box"><h3>점수</h3><div class="score-value" id="score">0</div></div>
+    <div class="panel-box"><h3>레벨</h3><div class="score-value" id="level">1</div></div>
+    <div class="panel-box"><h3>줄</h3><div class="score-value" id="lines">0</div></div>
+    <div class="panel-box"><h3>다음</h3><canvas id="next" width="100" height="100"></canvas></div>
     <div class="panel-box controls-hint">
       <h3>조작</h3>
-      <span>←→</span> 이동<br>
-      <span>↑</span> 회전<br>
-      <span>↓</span> 내리기<br>
-      <span>Space</span> 즉시낙하<br>
-      <span>P</span> 일시정지
+      <span>←→</span> 이동<br><span>↑</span> 회전<br>
+      <span>↓</span> 내리기<br><span>Space</span> 즉시낙하<br><span>P</span> 일시정지
     </div>
     <button class="btn" id="startBtn" onclick="startGame()">시작</button>
   </div>
 </div>
 
-<!-- 모바일 컨트롤 버튼 -->
 <div class="mobile-controls" id="mobileControls">
   <div class="ctrl-row">
     <div class="ctrl-btn small" id="btnPause">⏸</div>
-    <div class="ctrl-btn wide" id="btnDrop">⬇ 즉시낙하</div>
+    <div class="ctrl-btn wide"  id="btnDrop">⚡ 즉시낙하</div>
     <div class="ctrl-btn small" id="btnRestart">🔄</div>
   </div>
   <div class="ctrl-row">
@@ -237,7 +174,7 @@
 
 <div id="message">
   <h2>🎮 테트리스</h2>
-  <p>시작 버튼을 눌러 게임을 시작하세요!<br><small style="color:#666">모바일: 스와이프로도 조작 가능</small></p>
+  <p>시작 버튼을 눌러 주세요!<br><small style="color:#666">드래그로 이동 · 탭으로 회전 · 아래로 쓸어내려 즉시낙하</small></p>
   <button class="btn" onclick="startGame()">게임 시작</button>
 </div>
 
@@ -258,265 +195,385 @@ const SHAPES = [
 ];
 
 const boardEl = document.getElementById('board');
-const ctx = boardEl.getContext('2d');
-const nextEl = document.getElementById('next');
-const nctx = nextEl.getContext('2d');
+const ctx     = boardEl.getContext('2d');
+const nextEl  = document.getElementById('next');
+const nctx    = nextEl.getContext('2d');
 
-let grid, piece, nextPiece, score, level, lines, gameLoop, paused, gameOver;
+let grid, piece, nextPiece, score, level, lines;
+let paused = false, gameOver = true;
 
-/* ── 반응형 캔버스 크기 ── */
+// RAF 기반 게임 루프
+let rafId = null;
+let lastDropTime = 0;
+
+function getDropInterval() { return Math.max(80, 800 - (level - 1) * 70); }
+
+/* ── 반응형 크기 ── */
 function resizeCanvas() {
-  const isMobile = window.innerWidth <= 600;
-  if (isMobile) {
-    const maxH = window.innerHeight - 180; // 버튼 영역 확보
-    const maxW = window.innerWidth - 16;
+  if (window.innerWidth <= 600) {
+    const usedH = 180; // HUD + 버튼 영역
+    const maxH  = window.innerHeight - usedH;
+    const maxW  = window.innerWidth - 12;
     BLOCK = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
   } else {
     BLOCK = 30;
   }
   boardEl.width  = BLOCK * COLS;
   boardEl.height = BLOCK * ROWS;
-  if (grid) render();
 }
-window.addEventListener('resize', resizeCanvas);
+window.addEventListener('resize', () => { resizeCanvas(); });
 resizeCanvas();
 
-function createGrid() { return Array.from({length:ROWS},()=>Array(COLS).fill(0)); }
+/* ── 유틸 ── */
+function createGrid() { return Array.from({length:ROWS}, () => Array(COLS).fill(0)); }
 
 function randomPiece() {
-  const id = Math.ceil(Math.random()*7);
-  const shape = SHAPES[id].map(r=>[...r]);
-  return { id, shape, x: Math.floor(COLS/2)-Math.floor(shape[0].length/2), y:0 };
+  const id = Math.ceil(Math.random() * 7);
+  const shape = SHAPES[id].map(r => [...r]);
+  return { id, shape, x: Math.floor(COLS/2) - Math.floor(shape[0].length/2), y: 0 };
 }
 
-function drawBlock(context, x, y, color, size) {
-  size = size || BLOCK;
-  context.fillStyle = color;
-  context.fillRect(x*size+1, y*size+1, size-2, size-2);
-  context.fillStyle = 'rgba(255,255,255,0.15)';
-  context.fillRect(x*size+1, y*size+1, size-2, 4);
-  context.fillRect(x*size+1, y*size+1, 4, size-2);
-}
-
-function drawGrid() {
-  ctx.clearRect(0,0,boardEl.width,boardEl.height);
-  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
-    if (grid[r][c]) drawBlock(ctx,c,r,COLORS[grid[r][c]]);
-    else { ctx.strokeStyle='#16213e'; ctx.strokeRect(c*BLOCK,r*BLOCK,BLOCK,BLOCK); }
-  }
-}
-
-function drawPiece(p) {
-  p = p || piece;
-  if (!p) return;
-  p.shape.forEach((row,r)=>row.forEach((cell,c)=>{
-    if (cell) drawBlock(ctx, p.x+c, p.y+r, COLORS[p.id]);
-  }));
-}
-
-function drawGhost() {
-  if (!piece) return;
-  let gy = piece.y;
-  while (!collide(piece.x, gy+1, piece.shape)) gy++;
-  piece.shape.forEach((row,r)=>row.forEach((cell,c)=>{
-    if (cell) {
-      ctx.fillStyle = COLORS[piece.id]+'44';
-      ctx.fillRect((piece.x+c)*BLOCK+1,(gy+r)*BLOCK+1,BLOCK-2,BLOCK-2);
+function collide(x, y, shape) {
+  for (let r = 0; r < shape.length; r++)
+    for (let c = 0; c < shape[r].length; c++) {
+      if (!shape[r][c]) continue;
+      const nx = x+c, ny = y+r;
+      if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+      if (ny >= 0 && grid[ny][nx]) return true;
     }
-  }));
-}
-
-function drawNext() {
-  nctx.clearRect(0,0,nextEl.width,nextEl.height);
-  if (!nextPiece) return;
-  const ns = 22;
-  const ox = Math.floor((nextEl.width/ns - nextPiece.shape[0].length)/2);
-  const oy = Math.floor((nextEl.height/ns - nextPiece.shape.length)/2);
-  nextPiece.shape.forEach((row,r)=>row.forEach((cell,c)=>{
-    if (cell) {
-      nctx.fillStyle = COLORS[nextPiece.id];
-      nctx.fillRect((ox+c)*ns+1,(oy+r)*ns+1,ns-2,ns-2);
-      nctx.fillStyle='rgba(255,255,255,0.15)';
-      nctx.fillRect((ox+c)*ns+1,(oy+r)*ns+1,ns-2,3);
-      nctx.fillRect((ox+c)*ns+1,(oy+r)*ns+1,3,ns-2);
-    }
-  }));
-}
-
-function collide(x,y,shape) {
-  for (let r=0;r<shape.length;r++) for (let c=0;c<shape[r].length;c++) {
-    if (!shape[r][c]) continue;
-    const nx=x+c, ny=y+r;
-    if (nx<0||nx>=COLS||ny>=ROWS) return true;
-    if (ny>=0&&grid[ny][nx]) return true;
-  }
   return false;
-}
-
-function merge() {
-  piece.shape.forEach((row,r)=>row.forEach((cell,c)=>{
-    if (cell) grid[piece.y+r][piece.x+c]=piece.id;
-  }));
-}
-
-function updateHUD() {
-  ['score','level','lines'].forEach(k=>{
-    const val = k==='score'?score:k==='level'?level:lines;
-    const el = document.getElementById(k);
-    const elm = document.getElementById(k+'-m');
-    if (el) el.textContent = val;
-    if (elm) elm.textContent = val;
-  });
-}
-
-function clearLines() {
-  let cleared=0;
-  for (let r=ROWS-1;r>=0;r--) {
-    if (grid[r].every(c=>c!==0)) { grid.splice(r,1); grid.unshift(Array(COLS).fill(0)); cleared++; r++; }
-  }
-  if (cleared) {
-    const pts=[0,100,300,500,800];
-    score += (pts[cleared]||800)*level;
-    lines += cleared;
-    level = Math.floor(lines/10)+1;
-    updateHUD();
-  }
 }
 
 function rotate(shape) {
   const n=shape.length, m=shape[0].length;
-  const rot = Array.from({length:m},()=>Array(n).fill(0));
-  for (let r=0;r<n;r++) for (let c=0;c<m;c++) rot[c][n-1-r]=shape[r][c];
+  const rot = Array.from({length:m}, () => Array(n).fill(0));
+  for (let r=0;r<n;r++) for (let c=0;c<m;c++) rot[c][n-1-r] = shape[r][c];
   return rot;
 }
 
-function drop() {
-  if (paused||gameOver) return;
-  if (!collide(piece.x,piece.y+1,piece.shape)) { piece.y++; }
-  else {
-    merge(); clearLines();
-    piece=nextPiece; nextPiece=randomPiece(); drawNext();
-    if (collide(piece.x,piece.y,piece.shape)) { endGame(); return; }
+/* ── 그리기 ── */
+function drawBlock(context, x, y, color, size) {
+  size = size || BLOCK;
+  context.fillStyle = color;
+  context.fillRect(x*size+1, y*size+1, size-2, size-2);
+  context.fillStyle = 'rgba(255,255,255,0.18)';
+  context.fillRect(x*size+1, y*size+1, size-2, 4);
+  context.fillRect(x*size+1, y*size+1, 4, size-2);
+}
+
+function render() {
+  ctx.clearRect(0, 0, boardEl.width, boardEl.height);
+  // 격자
+  ctx.strokeStyle = '#16213e';
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    if (grid[r][c]) drawBlock(ctx, c, r, COLORS[grid[r][c]]);
+    else ctx.strokeRect(c*BLOCK, r*BLOCK, BLOCK, BLOCK);
   }
-  render();
+  // 고스트
+  if (piece) {
+    let gy = piece.y;
+    while (!collide(piece.x, gy+1, piece.shape)) gy++;
+    piece.shape.forEach((row,r) => row.forEach((cell,c) => {
+      if (cell) {
+        ctx.fillStyle = COLORS[piece.id] + '44';
+        ctx.fillRect((piece.x+c)*BLOCK+1, (gy+r)*BLOCK+1, BLOCK-2, BLOCK-2);
+      }
+    }));
+    // 현재 피스
+    piece.shape.forEach((row,r) => row.forEach((cell,c) => {
+      if (cell) drawBlock(ctx, piece.x+c, piece.y+r, COLORS[piece.id]);
+    }));
+  }
+}
+
+function drawNext() {
+  nctx.clearRect(0, 0, nextEl.width, nextEl.height);
+  if (!nextPiece) return;
+  const ns = 22;
+  const ox = Math.floor((nextEl.width/ns  - nextPiece.shape[0].length) / 2);
+  const oy = Math.floor((nextEl.height/ns - nextPiece.shape.length)    / 2);
+  nextPiece.shape.forEach((row,r) => row.forEach((cell,c) => {
+    if (!cell) return;
+    nctx.fillStyle = COLORS[nextPiece.id];
+    nctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, ns-2, ns-2);
+    nctx.fillStyle = 'rgba(255,255,255,0.18)';
+    nctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, ns-2, 3);
+    nctx.fillRect((ox+c)*ns+1, (oy+r)*ns+1, 3, ns-2);
+  }));
+}
+
+function updateHUD() {
+  document.getElementById('score').textContent   = score;
+  document.getElementById('level').textContent   = level;
+  document.getElementById('lines').textContent   = lines;
+  document.getElementById('score-m').textContent = score;
+  document.getElementById('level-m').textContent = level;
+  document.getElementById('lines-m').textContent = lines;
+}
+
+/* ── 게임 로직 ── */
+function merge() {
+  piece.shape.forEach((row,r) => row.forEach((cell,c) => {
+    if (cell) grid[piece.y+r][piece.x+c] = piece.id;
+  }));
+}
+
+function clearLines() {
+  let cleared = 0;
+  for (let r = ROWS-1; r >= 0; r--) {
+    if (grid[r].every(c => c !== 0)) {
+      grid.splice(r, 1);
+      grid.unshift(Array(COLS).fill(0));
+      cleared++; r++;
+    }
+  }
+  if (cleared) {
+    const pts = [0, 100, 300, 500, 800];
+    score += (pts[cleared] || 800) * level;
+    lines += cleared;
+    level = Math.floor(lines / 10) + 1;
+    updateHUD();
+  }
+}
+
+function spawnNext() {
+  piece = nextPiece;
+  nextPiece = randomPiece();
+  drawNext();
+  if (collide(piece.x, piece.y, piece.shape)) { endGame(); return false; }
+  return true;
+}
+
+function drop() {
+  if (!collide(piece.x, piece.y+1, piece.shape)) {
+    piece.y++;
+  } else {
+    merge(); clearLines();
+    if (!spawnNext()) return;
+  }
 }
 
 function hardDrop() {
-  while (!collide(piece.x,piece.y+1,piece.shape)) piece.y++;
-  drop();
+  while (!collide(piece.x, piece.y+1, piece.shape)) piece.y++;
+  merge(); clearLines();
+  spawnNext();
+  lastDropTime = performance.now();
+  render();
 }
 
-function render() { drawGrid(); drawGhost(); drawPiece(); }
-
-function getSpeed() { return Math.max(100, 800-(level-1)*70); }
-
-function startGameLoop() {
-  clearInterval(gameLoop);
-  gameLoop = setInterval(drop, getSpeed());
+/* ── RAF 게임 루프 ── */
+function gameLoop(ts) {
+  if (gameOver || paused) return;
+  if (ts - lastDropTime >= getDropInterval()) {
+    drop();
+    lastDropTime = ts;
+  }
+  render();
+  rafId = requestAnimationFrame(gameLoop);
 }
 
+function startLoop() {
+  if (rafId) cancelAnimationFrame(rafId);
+  lastDropTime = performance.now();
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+function stopLoop() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+}
+
+/* ── 게임 시작 / 종료 ── */
 function startGame() {
-  document.getElementById('message').style.display='none';
-  grid=createGrid(); score=0; level=1; lines=0; paused=false; gameOver=false;
+  document.getElementById('message').style.display = 'none';
+  grid = createGrid();
+  score = 0; level = 1; lines = 0;
+  paused = false; gameOver = false;
   updateHUD();
-  document.getElementById('startBtn') && (document.getElementById('startBtn').textContent='재시작');
-  piece=randomPiece(); nextPiece=randomPiece(); drawNext(); render(); startGameLoop();
+  const startBtn = document.getElementById('startBtn');
+  if (startBtn) startBtn.textContent = '재시작';
+  piece = randomPiece();
+  nextPiece = randomPiece();
+  drawNext();
+  startLoop();
 }
 
 function endGame() {
-  clearInterval(gameLoop); gameOver=true;
-  const msg=document.getElementById('message');
-  msg.innerHTML=`
+  stopLoop(); gameOver = true;
+  const msg = document.getElementById('message');
+  msg.innerHTML = `
     <h2>게임 오버</h2>
     <p>최종 점수: <strong style="color:#e94560">${score}</strong></p>
     <p style="margin-bottom:20px">레벨: ${level} | 줄: ${lines}</p>
     <button class="btn" onclick="startGame()">다시 시작</button>
   `;
-  msg.style.display='block';
+  msg.style.display = 'block';
 }
 
 /* ── 키보드 ── */
 document.addEventListener('keydown', e => {
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
-  if (gameOver) return;
-  if (e.key==='p'||e.key==='P') { paused=!paused; paused?clearInterval(gameLoop):startGameLoop(); return; }
-  if (paused) return;
-  switch(e.key) {
-    case 'ArrowLeft':  if (!collide(piece.x-1,piece.y,piece.shape)){piece.x--;render();} break;
-    case 'ArrowRight': if (!collide(piece.x+1,piece.y,piece.shape)){piece.x++;render();} break;
-    case 'ArrowDown':  drop(); break;
-    case 'ArrowUp': { const rot=rotate(piece.shape); if(!collide(piece.x,piece.y,rot)){piece.shape=rot;render();} break; }
+  if (e.key === 'p' || e.key === 'P') {
+    if (gameOver) return;
+    paused = !paused;
+    if (paused) stopLoop(); else startLoop();
+    return;
+  }
+  if (gameOver || paused) return;
+  switch (e.key) {
+    case 'ArrowLeft':  if (!collide(piece.x-1, piece.y, piece.shape)) { piece.x--; render(); } break;
+    case 'ArrowRight': if (!collide(piece.x+1, piece.y, piece.shape)) { piece.x++; render(); } break;
+    case 'ArrowDown':  drop(); render(); break;
+    case 'ArrowUp': {
+      const rot = rotate(piece.shape);
+      if (!collide(piece.x, piece.y, rot)) { piece.shape = rot; render(); }
+      break;
+    }
     case ' ': hardDrop(); break;
   }
 });
 
-/* ── 모바일 버튼 ── */
-function bindBtn(id, fn) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener('touchstart', e => { e.preventDefault(); if (!gameOver && !paused) fn(); }, {passive:false});
-  el.addEventListener('mousedown', e => { e.preventDefault(); if (!gameOver && !paused) fn(); });
-}
+/* ══════════════════════════════════════════
+   모바일 터치 — 실시간 드래그
+══════════════════════════════════════════ */
+let touchStartX = 0, touchStartY = 0;
+let touchLastX  = 0, touchLastY  = 0;
+let touchStartTime = 0;
+let dragColAccum = 0;   // 수평 이동 누적(픽셀)
+let dragRowAccum = 0;   // 수직 이동 누적(픽셀)
+let isDragging   = false;
+let softDropTimer = null;
 
-bindBtn('btnLeft',   ()=>{if(!collide(piece.x-1,piece.y,piece.shape)){piece.x--;render();}});
-bindBtn('btnRight',  ()=>{if(!collide(piece.x+1,piece.y,piece.shape)){piece.x++;render();}});
-bindBtn('btnDown',   ()=>drop());
-bindBtn('btnDrop',   ()=>hardDrop());
-bindBtn('btnRotate', ()=>{ const rot=rotate(piece.shape); if(!collide(piece.x,piece.y,rot)){piece.shape=rot;render();} });
+const DRAG_THRESHOLD = 8;    // 드래그 판정 최소 픽셀
+const TAP_MAX_DIST   = 12;   // 탭 판정 최대 이동 거리
+const TAP_MAX_TIME   = 200;  // 탭 판정 최대 시간(ms)
+const SOFT_DROP_INTERVAL = 80; // 소프트드롭 간격(ms)
 
-document.getElementById('btnPause').addEventListener('touchstart', e=>{
+boardEl.addEventListener('touchstart', e => {
   e.preventDefault();
-  if (gameOver) return;
-  paused=!paused; paused?clearInterval(gameLoop):startGameLoop();
-},{passive:false});
-document.getElementById('btnPause').addEventListener('mousedown', e=>{
+  const t = e.touches[0];
+  touchStartX = touchLastX = t.clientX;
+  touchStartY = touchLastY = t.clientY;
+  touchStartTime = performance.now();
+  dragColAccum = 0;
+  dragRowAccum = 0;
+  isDragging = false;
+}, { passive: false });
+
+boardEl.addEventListener('touchmove', e => {
   e.preventDefault();
-  if (gameOver) return;
-  paused=!paused; paused?clearInterval(gameLoop):startGameLoop();
-});
-document.getElementById('btnRestart').addEventListener('touchstart', e=>{ e.preventDefault(); startGame(); },{passive:false});
-document.getElementById('btnRestart').addEventListener('mousedown', e=>{ e.preventDefault(); startGame(); });
+  if (gameOver || paused || !piece) return;
 
-/* ── 스와이프 제스처 ── */
-let touchStartX=0, touchStartY=0, touchStartTime=0;
-const SWIPE_THRESHOLD = 30;
+  const t = e.touches[0];
+  const dx = t.clientX - touchLastX;
+  const dy = t.clientY - touchLastY;
+  touchLastX = t.clientX;
+  touchLastY = t.clientY;
 
-boardEl.addEventListener('touchstart', e=>{
-  e.preventDefault();
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-  touchStartTime = Date.now();
-},{passive:false});
+  const totalDist = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
+  if (totalDist > DRAG_THRESHOLD) isDragging = true;
+  if (!isDragging) return;
 
-boardEl.addEventListener('touchend', e=>{
-  e.preventDefault();
-  if (gameOver||paused) return;
-  const dx = e.changedTouches[0].clientX - touchStartX;
-  const dy = e.changedTouches[0].clientY - touchStartY;
-  const dt = Date.now() - touchStartTime;
-  const absDx = Math.abs(dx), absDy = Math.abs(dy);
-
-  if (absDx < 10 && absDy < 10 && dt < 200) {
-    // 탭 → 회전
-    const rot=rotate(piece.shape);
-    if (!collide(piece.x,piece.y,rot)){piece.shape=rot;render();}
-  } else if (absDx > absDy && absDx > SWIPE_THRESHOLD) {
-    // 좌우 스와이프
-    const steps = Math.round(absDx / BLOCK);
-    for (let i=0;i<steps;i++) {
-      const nx = piece.x + (dx>0?1:-1);
-      if (!collide(nx,piece.y,piece.shape)) piece.x = nx;
+  // ── 수평 실시간 이동 ──
+  dragColAccum += dx;
+  const colsToMove = Math.trunc(dragColAccum / BLOCK);
+  if (colsToMove !== 0) {
+    dragColAccum -= colsToMove * BLOCK;
+    const dir = colsToMove > 0 ? 1 : -1;
+    const steps = Math.abs(colsToMove);
+    for (let i = 0; i < steps; i++) {
+      if (!collide(piece.x + dir, piece.y, piece.shape)) piece.x += dir;
     }
     render();
-  } else if (dy > SWIPE_THRESHOLD && absDy > absDx) {
-    // 아래 스와이프 → 하드드롭
-    hardDrop();
-  } else if (dy < -SWIPE_THRESHOLD && absDy > absDx) {
-    // 위 스와이프 → 회전
-    const rot=rotate(piece.shape);
-    if (!collide(piece.x,piece.y,rot)){piece.shape=rot;render();}
   }
-},{passive:false});
+
+  // ── 수직 소프트드롭 ──
+  dragRowAccum += dy;
+  if (dragRowAccum > BLOCK * 0.6) {
+    dragRowAccum = 0;
+    drop();
+    render();
+  }
+}, { passive: false });
+
+boardEl.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (gameOver || paused || !piece) return;
+
+  const elapsed = performance.now() - touchStartTime;
+  const totalDist = Math.hypot(
+    e.changedTouches[0].clientX - touchStartX,
+    e.changedTouches[0].clientY - touchStartY
+  );
+  const dy = e.changedTouches[0].clientY - touchStartY;
+
+  if (!isDragging && totalDist < TAP_MAX_DIST && elapsed < TAP_MAX_TIME) {
+    // 탭 → 회전
+    const rot = rotate(piece.shape);
+    if (!collide(piece.x, piece.y, rot)) { piece.shape = rot; render(); }
+  } else if (dy > BLOCK * 3 && Math.abs(dy) > Math.abs(e.changedTouches[0].clientX - touchStartX)) {
+    // 빠른 아래 스와이프 → 즉시 낙하
+    hardDrop();
+  }
+  isDragging = false;
+  dragColAccum = 0;
+  dragRowAccum = 0;
+}, { passive: false });
+
+/* ── 버튼: 누르고 있으면 반복 ── */
+function makeRepeatBtn(id, action, firstDelay=120, repeatDelay=80) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let timer = null;
+  let rafRepeat = null;
+
+  function doAction() {
+    if (!gameOver && !paused) action();
+  }
+
+  function startRepeat() {
+    doAction();
+    el.classList.add('pressed');
+    timer = setTimeout(() => {
+      function loop() {
+        doAction();
+        rafRepeat = setTimeout(loop, repeatDelay);
+      }
+      loop();
+    }, firstDelay);
+  }
+  function stopRepeat() {
+    el.classList.remove('pressed');
+    clearTimeout(timer);
+    clearTimeout(rafRepeat);
+    timer = rafRepeat = null;
+  }
+
+  el.addEventListener('touchstart',  e => { e.preventDefault(); startRepeat(); }, { passive: false });
+  el.addEventListener('touchend',    e => { e.preventDefault(); stopRepeat();  }, { passive: false });
+  el.addEventListener('touchcancel', e => { e.preventDefault(); stopRepeat();  }, { passive: false });
+  el.addEventListener('mousedown',   e => { e.preventDefault(); startRepeat(); });
+  el.addEventListener('mouseup',     e => { e.preventDefault(); stopRepeat();  });
+  el.addEventListener('mouseleave',  e => { stopRepeat(); });
+}
+
+function makeSingleBtn(id, action) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('touchstart', e => { e.preventDefault(); action(); }, { passive: false });
+  el.addEventListener('mousedown',  e => { e.preventDefault(); action(); });
+}
+
+makeRepeatBtn('btnLeft',   () => { if (!collide(piece.x-1, piece.y, piece.shape)) { piece.x--; render(); } });
+makeRepeatBtn('btnRight',  () => { if (!collide(piece.x+1, piece.y, piece.shape)) { piece.x++; render(); } });
+makeRepeatBtn('btnDown',   () => { drop(); render(); }, 100, 60);
+makeSingleBtn('btnRotate', () => { const rot=rotate(piece.shape); if(!collide(piece.x,piece.y,rot)){piece.shape=rot;render();} });
+makeSingleBtn('btnDrop',   () => { hardDrop(); });
+makeSingleBtn('btnPause',  () => {
+  if (gameOver) return;
+  paused = !paused;
+  if (paused) stopLoop(); else startLoop();
+});
+makeSingleBtn('btnRestart', () => startGame());
 </script>
 </body>
 </html>
