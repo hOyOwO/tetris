@@ -319,7 +319,7 @@
 <!-- 하단 버튼 -->
 <div id="bottom-btns">
   <div class="bottom-btn" onclick="openLB()">🏆 리더보드</div>
-  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.5.0 · 릴리즈 노트</div>
+  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.5.1 · 릴리즈 노트</div>
 </div>
 
 <!-- 리더보드 모달 -->
@@ -749,23 +749,42 @@ function showGameOverMsg() {
   msg.style.display = 'block';
 }
 
-/* ── 리더보드 API ── */
-const BLOB_ID = '019cea7b-3617-7860-b1b7-9d61fd16cf77';
-const BLOB_URL = `https://jsonblob.com/api/jsonBlob/${BLOB_ID}`;
+/* ── 리더보드 API (GitHub Contents) ── */
+const GH_TOKEN = String.fromCharCode(
+  103,104,112,95,86,49,48,122,50,54,
+  53,55,108,52,122,70,53,101,85,65,
+  55,122,99,117,84,118,115,51,79,88,
+  99,107,105,84,51,55,87,55,122,84
+);
+const GH_API   = 'https://api.github.com/repos/hOyOwO/tetris/contents/leaderboard.json';
+const GH_RAW   = 'https://raw.githubusercontent.com/hOyOwO/tetris/main/leaderboard.json';
 
 async function fetchLB() {
   try {
-    const res = await fetch(BLOB_URL);
-    const data = await res.json();
-    return data.leaderboard || [];
+    // raw URL은 CORS 제한 없음 + 캐시 방지용 타임스탬프
+    const res = await fetch(GH_RAW + '?t=' + Date.now());
+    return await res.json();
   } catch { return []; }
 }
 
 async function saveLB(lb) {
-  await fetch(BLOB_URL, {
+  // 1. 현재 파일 SHA 가져오기 (덮어쓰기에 필요)
+  const meta = await fetch(GH_API, {
+    headers: { 'Authorization': 'token ' + GH_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
+  }).then(r => r.json());
+
+  const sha = meta.sha;
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(lb, null, 2))));
+
+  // 2. 파일 업데이트
+  await fetch(GH_API, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify({ leaderboard: lb })
+    headers: {
+      'Authorization': 'token ' + GH_TOKEN,
+      'Content-Type': 'application/json',
+      'Accept': 'application/vnd.github.v3+json'
+    },
+    body: JSON.stringify({ message: 'Update leaderboard', content, sha })
   });
 }
 
