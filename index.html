@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>테트리스 v1.6.1</title>
+  <title>테트리스 v1.6.2</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -319,7 +319,7 @@
 <!-- 하단 버튼 -->
 <div id="bottom-btns">
   <div class="bottom-btn" onclick="openLB()">🏆 리더보드</div>
-  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.6.1 · 릴리즈 노트</div>
+  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.6.2 · 릴리즈 노트</div>
 </div>
 
 <!-- 리더보드 모달 -->
@@ -352,11 +352,22 @@
     <div class="subtitle">hOyOwO/tetris · GitHub Pages</div>
 
     <div class="release-entry">
-      <div class="ver">v1.6.1 <span class="latest">LATEST</span></div>
+      <div class="ver">v1.6.2 <span class="latest">LATEST</span></div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>다줄 클리어 버그 완전 수정 — grid 명시적 재구성으로 행 잔류 현상 제거</li>
+        <li>클리어 애니메이션 중 입력 차단 — 키보드·터치·버튼 모두 적용</li>
+        <li>리더보드에 버전 컬럼 추가 — 버전별 기록 구분 가능</li>
+        <li>점수 등록 시 게임 버전 자동 기록</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.6.1</div>
       <div class="date">2026-03-14</div>
       <ul>
         <li>라인 클리어 이펙트 속도 개선 — 180ms로 단축</li>
-        <li>3~4줄 동시 클리어 버그 수정 — splice 인덱스 밀림 문제 해결</li>
+        <li>3~4줄 동시 클리어 버그 수정 시도 (filter 방식)</li>
         <li>벽킥(Wall Kick) 추가 — 벽에 붙어 있어도 ±2칸 오프셋으로 회전 시도</li>
         <li>회전 방향 반시계 방향으로 변경</li>
       </ul>
@@ -522,6 +533,7 @@
 <script>
 const COLS = 10, ROWS = 20;
 let BLOCK = 30;
+const GAME_VERSION = 'v1.6.2';
 
 const COLORS = [null,'#00f0f0','#0000f0','#f0a000','#f0f000','#00f000','#a000f0','#f00000'];
 const SHAPES = [
@@ -720,10 +732,15 @@ function detectAndAnimateClear() {
 // 애니메이션 끝난 후 실제 제거 + 점수 반영
 function applyClearLines() {
   const cleared = clearingRows.length;
-  // filter로 한 번에 제거 (splice 반복 시 인덱스 밀림 버그 방지)
-  const newGrid = grid.filter((_, r) => !clearingRows.includes(r));
-  while (newGrid.length < ROWS) newGrid.unshift(Array(COLS).fill(0));
-  grid.splice(0, ROWS, ...newGrid);
+  // 명시적 루프로 그리드 재구성 (splice+spread 방식의 불안정성 제거)
+  const rowSet = new Set(clearingRows);
+  const kept = [];
+  for (let r = 0; r < ROWS; r++) {
+    if (!rowSet.has(r)) kept.push(grid[r]);
+  }
+  // 상단부터 빈 줄(cleared 개수)로 채우고 나머지 이어붙임
+  for (let i = 0; i < cleared; i++) grid[i] = Array(COLS).fill(0);
+  for (let i = 0; i < kept.length; i++) grid[cleared + i] = kept[i];
 
   clearingRows  = [];
   clearingStart = null;
@@ -960,11 +977,12 @@ function renderLB(lb) {
       <td class="lb-rank">${medals[i] || (i+1)}</td>
       <td>${e.name}</td>
       <td class="lb-score">${e.score.toLocaleString()}</td>
+      <td style="font-size:11px;color:#888;text-align:right">${e.ver || '-'}</td>
       <td style="font-size:11px;color:#555;text-align:right">${e.date}</td>
     </tr>`).join('');
   document.getElementById('lb-content').innerHTML = `
     <table class="lb-table">
-      <thead><tr><th>#</th><th>이름</th><th style="text-align:right">점수</th><th style="text-align:right">날짜</th></tr></thead>
+      <thead><tr><th>#</th><th>이름</th><th style="text-align:right">점수</th><th style="text-align:right">버전</th><th style="text-align:right">날짜</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
@@ -979,7 +997,7 @@ async function submitScore() {
   btnSubmit.textContent = '등록 중...';
 
   const today = new Date().toLocaleDateString('ko-KR', {month:'2-digit', day:'2-digit'}).replace('. ','월 ').replace('.','일');
-  const entry = { name, score, level, date: today };
+  const entry = { name, score, level, date: today, ver: GAME_VERSION };
 
   const ok = await saveLB(entry);
 
@@ -1019,7 +1037,7 @@ document.addEventListener('keydown', e => {
     if (paused) stopLoop(); else startLoop();
     return;
   }
-  if (gameOver || paused) return;
+  if (gameOver || paused || clearingRows.length > 0) return;
   switch (e.key) {
     case 'ArrowLeft':
       if (!collide(piece.x-1, piece.y, piece.shape)) { piece.x--; resetLockIfNeeded(); render(); }
@@ -1064,7 +1082,7 @@ boardEl.addEventListener('touchstart', e => {
 
 boardEl.addEventListener('touchmove', e => {
   e.preventDefault();
-  if (gameOver || paused || !piece) return;
+  if (gameOver || paused || !piece || clearingRows.length > 0) return;
 
   const t = e.touches[0];
   const dx = t.clientX - touchLastX;
@@ -1102,7 +1120,7 @@ boardEl.addEventListener('touchmove', e => {
 
 boardEl.addEventListener('touchend', e => {
   e.preventDefault();
-  if (gameOver || paused || !piece) return;
+  if (gameOver || paused || !piece || clearingRows.length > 0) return;
 
   const elapsed = performance.now() - touchStartTime;
   const totalDist = Math.hypot(
@@ -1131,7 +1149,7 @@ function makeRepeatBtn(id, action, firstDelay=120, repeatDelay=80) {
   let rafRepeat = null;
 
   function doAction() {
-    if (!gameOver && !paused) action();
+    if (!gameOver && !paused && clearingRows.length === 0) action();
   }
 
   function startRepeat() {
