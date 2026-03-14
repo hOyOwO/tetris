@@ -726,11 +726,12 @@ function startGame() {
 
 function endGame() {
   stopLoop(); gameOver = true;
-  // 점수가 0이면 등록 안 함
-  if (score === 0) {
-    showGameOverMsg(); return;
-  }
-  // 닉네임 입력 모달
+  if (score === 0) { showGameOverMsg(); return; }
+
+  // 닉네임 입력 모달을 띄우는 동시에 → 백그라운드에서 SHA 미리 가져오기
+  // 유저가 이름 타이핑하는 동안 이미 준비 완료 → 등록 버튼 즉시 반응
+  prefetchPromise = fetchLBFresh();
+
   document.getElementById('nm-score').textContent = score.toLocaleString() + '점';
   document.getElementById('nm-input').value = '';
   document.getElementById('name-modal').classList.add('open');
@@ -756,41 +757,31 @@ const GH_TOKEN = String.fromCharCode(
   55,122,99,117,84,118,115,51,79,88,
   99,107,105,84,51,55,87,55,122,84
 );
-const GH_API   = 'https://api.github.com/repos/hOyOwO/tetris/contents/leaderboard.json';
-const GH_RAW   = 'https://raw.githubusercontent.com/hOyOwO/tetris/main/leaderboard.json';
+const GH_API = 'https://api.github.com/repos/hOyOwO/tetris/contents/leaderboard.json';
 
-async function fetchLB() {
-  try {
-    // 리더보드 보기용 — raw URL (CORS 무제한, 캐시 방지 타임스탬프)
-    const res = await fetch(GH_RAW + '?t=' + Date.now());
-    return await res.json();
-  } catch { return []; }
-}
+// 게임 오버 시 미리 받아둘 캐시
+let prefetchPromise = null;
 
 async function fetchLBFresh() {
-  // 저장 직전 최신 내용 읽기 — GitHub API 경유 (CDN 캐시 없음)
   const res = await fetch(GH_API, {
     headers: { 'Authorization': 'token ' + GH_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
   });
   const meta = await res.json();
-  // base64 디코딩 후 JSON 파싱
   const text = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
   return { lb: JSON.parse(text), sha: meta.sha };
 }
 
 async function saveLB(newEntry) {
   try {
-    // 1. 항상 GitHub API로 최신 데이터 + SHA 동시에 가져오기
-    const { lb, sha } = await fetchLBFresh();
+    // 미리 받아둔 캐시 사용 → 없으면 지금 요청
+    const { lb, sha } = await (prefetchPromise || fetchLBFresh());
+    prefetchPromise = null;
 
-    // 2. 새 항목 추가 → 정렬 → TOP 10
     lb.push(newEntry);
     lb.sort((a, b) => b.score - a.score);
     const top10 = lb.slice(0, 10);
-
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(top10, null, 2))));
 
-    // 3. 파일 업데이트
     const putRes = await fetch(GH_API, {
       method: 'PUT',
       headers: {
@@ -801,7 +792,21 @@ async function saveLB(newEntry) {
       body: JSON.stringify({ message: 'Update leaderboard', content, sha })
     });
 
-    if (!putRes.ok) throw new Error('PUT failed: ' + putRes.status);
+    // SHA 충돌 시 1회 재시도
+    if (putRes.status === 409) {
+      const { lb: lb2, sha: sha2 } = await fetchLBFresh();
+      lb2.push(newEntry);
+      lb2.sort((a, b) => b.score - a.score);
+      const content2 = btoa(unescape(encodeURIComponent(JSON.stringify(lb2.slice(0, 10), null, 2))));
+      const retry = await fetch(GH_API, {
+        method: 'PUT',
+        headers: { 'Authorization': 'token ' + GH_TOKEN, 'Content-Type': 'application/json', 'Accept': 'application/vnd.github.v3+json' },
+        body: JSON.stringify({ message: 'Update leaderboard', content: content2, sha: sha2 })
+      });
+      if (!retry.ok) throw new Error('retry failed');
+    } else if (!putRes.ok) {
+      throw new Error('PUT failed: ' + putRes.status);
+    }
     return true;
   } catch (err) {
     console.error('리더보드 저장 실패:', err);
@@ -813,7 +818,6 @@ async function openLB() {
   document.getElementById('lb-modal').classList.add('open');
   document.getElementById('lb-content').innerHTML = '<div class="lb-loading">불러오는 중...</div>';
   try {
-    // GitHub API 직접 호출 → CDN 캐시 없이 항상 최신 데이터
     const { lb } = await fetchLBFresh();
     renderLB(lb);
   } catch {
