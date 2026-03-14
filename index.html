@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>테트리스 v1.3.0</title>
+  <title>테트리스 v1.4.0</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -234,7 +234,7 @@
 
 <!-- 버전 뱃지 -->
 <div id="version-badge" onclick="document.getElementById('release-modal').classList.add('open')">
-  v1.3.0 · 릴리즈 노트
+  v1.4.0 · 릴리즈 노트
 </div>
 
 <!-- 릴리즈 노트 모달 -->
@@ -244,8 +244,19 @@
     <div class="subtitle">hOyOwO/tetris · GitHub Pages</div>
 
     <div class="release-entry">
-      <div class="ver">v1.3.0 <span class="latest">LATEST</span></div>
+      <div class="ver">v1.4.0 <span class="latest">LATEST</span></div>
       <div class="date">2026-03-14</div>
+      <ul>
+        <li>락 딜레이(Lock Delay) 추가 — 바닥 닿은 후 500ms 동안 이동·회전 가능</li>
+        <li>이동/회전 성공 시 락 타이머 리셋 (최대 15회, 무한 회피 방지)</li>
+        <li>즉시낙하(하드드롭) 시 락 딜레이 없이 즉시 고정</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.3.0</div>
+      <div class="date">2026-03-14</div>
+
       <ul>
         <li>모바일 반응성 전면 개선 — <code>requestAnimationFrame</code> 기반 60fps 게임 루프 적용</li>
         <li>실시간 드래그 — 손가락 움직임에 즉시 피스 이동 (<code>touchmove</code>)</li>
@@ -362,6 +373,12 @@ let paused = false, gameOver = true;
 // RAF 기반 게임 루프
 let rafId = null;
 let lastDropTime = 0;
+
+// 락 딜레이
+const LOCK_DELAY   = 500;  // 바닥 닿은 후 고정까지 대기(ms)
+const LOCK_MAX_RESETS = 15; // 무한 회피 방지: 최대 리셋 횟수
+let lockTimer      = null; // 락 딜레이 시작 시각 (null = 락 중 아님)
+let lockResets     = 0;    // 현재 피스의 락 리셋 횟수
 
 function getDropInterval() { return Math.max(80, 800 - (level - 1) * 70); }
 
@@ -497,34 +514,67 @@ function spawnNext() {
   piece = nextPiece;
   nextPiece = randomPiece();
   drawNext();
+  lockTimer  = null;
+  lockResets = 0;
   if (collide(piece.x, piece.y, piece.shape)) { endGame(); return false; }
   return true;
+}
+
+function lockPiece() {
+  lockTimer = null;
+  merge();
+  clearLines();
+  spawnNext();
 }
 
 function drop() {
   if (!collide(piece.x, piece.y+1, piece.shape)) {
     piece.y++;
+    // 내려가면 락 타이머 취소
+    lockTimer = null;
   } else {
-    merge(); clearLines();
-    if (!spawnNext()) return;
+    // 바닥/블럭에 닿았지만 바로 고정 안 함 → 락 딜레이 시작
+    if (lockTimer === null) lockTimer = performance.now();
   }
 }
 
 function hardDrop() {
   while (!collide(piece.x, piece.y+1, piece.shape)) piece.y++;
+  lockTimer = null;
+  lockResets = 0;
   merge(); clearLines();
   spawnNext();
   lastDropTime = performance.now();
   render();
 }
 
+// 이동/회전 성공 시 락 딜레이 리셋 (LOCK_MAX_RESETS 이하일 때만)
+function resetLockIfNeeded() {
+  if (lockTimer !== null && lockResets < LOCK_MAX_RESETS) {
+    lockTimer = performance.now();
+    lockResets++;
+  }
+}
+
 /* ── RAF 게임 루프 ── */
 function gameLoop(ts) {
   if (gameOver || paused) return;
+
+  // 락 딜레이 만료 체크
+  if (lockTimer !== null && ts - lockTimer >= LOCK_DELAY) {
+    lockPiece();
+    lastDropTime = ts;
+    render();
+    rafId = requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  // 일반 중력 드롭
   if (ts - lastDropTime >= getDropInterval()) {
     drop();
     lastDropTime = ts;
   }
+
   render();
   rafId = requestAnimationFrame(gameLoop);
 }
@@ -532,6 +582,8 @@ function gameLoop(ts) {
 function startLoop() {
   if (rafId) cancelAnimationFrame(rafId);
   lastDropTime = performance.now();
+  lockTimer    = null;
+  lockResets   = 0;
   rafId = requestAnimationFrame(gameLoop);
 }
 
@@ -577,12 +629,16 @@ document.addEventListener('keydown', e => {
   }
   if (gameOver || paused) return;
   switch (e.key) {
-    case 'ArrowLeft':  if (!collide(piece.x-1, piece.y, piece.shape)) { piece.x--; render(); } break;
-    case 'ArrowRight': if (!collide(piece.x+1, piece.y, piece.shape)) { piece.x++; render(); } break;
+    case 'ArrowLeft':
+      if (!collide(piece.x-1, piece.y, piece.shape)) { piece.x--; resetLockIfNeeded(); render(); }
+      break;
+    case 'ArrowRight':
+      if (!collide(piece.x+1, piece.y, piece.shape)) { piece.x++; resetLockIfNeeded(); render(); }
+      break;
     case 'ArrowDown':  drop(); render(); break;
     case 'ArrowUp': {
       const rot = rotate(piece.shape);
-      if (!collide(piece.x, piece.y, rot)) { piece.shape = rot; render(); }
+      if (!collide(piece.x, piece.y, rot)) { piece.shape = rot; resetLockIfNeeded(); render(); }
       break;
     }
     case ' ': hardDrop(); break;
@@ -637,9 +693,11 @@ boardEl.addEventListener('touchmove', e => {
     dragColAccum -= colsToMove * BLOCK;
     const dir = colsToMove > 0 ? 1 : -1;
     const steps = Math.abs(colsToMove);
+    let moved = false;
     for (let i = 0; i < steps; i++) {
-      if (!collide(piece.x + dir, piece.y, piece.shape)) piece.x += dir;
+      if (!collide(piece.x + dir, piece.y, piece.shape)) { piece.x += dir; moved = true; }
     }
+    if (moved) resetLockIfNeeded();
     render();
   }
 
@@ -666,7 +724,7 @@ boardEl.addEventListener('touchend', e => {
   if (!isDragging && totalDist < TAP_MAX_DIST && elapsed < TAP_MAX_TIME) {
     // 탭 → 회전
     const rot = rotate(piece.shape);
-    if (!collide(piece.x, piece.y, rot)) { piece.shape = rot; render(); }
+    if (!collide(piece.x, piece.y, rot)) { piece.shape = rot; resetLockIfNeeded(); render(); }
   } else if (dy > BLOCK * 3 && Math.abs(dy) > Math.abs(e.changedTouches[0].clientX - touchStartX)) {
     // 빠른 아래 스와이프 → 즉시 낙하
     hardDrop();
@@ -720,10 +778,10 @@ function makeSingleBtn(id, action) {
   el.addEventListener('mousedown',  e => { e.preventDefault(); action(); });
 }
 
-makeRepeatBtn('btnLeft',   () => { if (!collide(piece.x-1, piece.y, piece.shape)) { piece.x--; render(); } });
-makeRepeatBtn('btnRight',  () => { if (!collide(piece.x+1, piece.y, piece.shape)) { piece.x++; render(); } });
+makeRepeatBtn('btnLeft',   () => { if (!collide(piece.x-1, piece.y, piece.shape)) { piece.x--; resetLockIfNeeded(); render(); } });
+makeRepeatBtn('btnRight',  () => { if (!collide(piece.x+1, piece.y, piece.shape)) { piece.x++; resetLockIfNeeded(); render(); } });
 makeRepeatBtn('btnDown',   () => { drop(); render(); }, 100, 60);
-makeSingleBtn('btnRotate', () => { const rot=rotate(piece.shape); if(!collide(piece.x,piece.y,rot)){piece.shape=rot;render();} });
+makeSingleBtn('btnRotate', () => { const rot=rotate(piece.shape); if(!collide(piece.x,piece.y,rot)){piece.shape=rot;resetLockIfNeeded();render();} });
 makeSingleBtn('btnDrop',   () => { hardDrop(); });
 makeSingleBtn('btnPause',  () => {
   if (gameOver) return;
