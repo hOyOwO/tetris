@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>테트리스 v1.7.0</title>
+  <title>테트리스 v1.7.2</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -331,6 +331,13 @@
       0% { opacity: 1; transform: translateX(-50%) scale(1); }
       100% { opacity: 0; transform: translateX(-50%) scale(0.8); }
     }
+    /* 레벨업 팝업 애니메이션 */
+    @keyframes levelUpFade {
+      0%   { opacity: 0; transform: translateX(-50%) scale(0.7); }
+      20%  { opacity: 1; transform: translateX(-50%) scale(1.1); }
+      60%  { opacity: 1; transform: translateX(-50%) scale(1.0); }
+      100% { opacity: 0; transform: translateX(-50%) scale(0.9) translateY(-20px); }
+    }
   </style>
 </head>
 <body>
@@ -338,7 +345,7 @@
 <!-- 하단 버튼 -->
 <div id="bottom-btns">
   <div class="bottom-btn" onclick="openLB()">🏆 리더보드</div>
-  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.7.0 · 릴리즈 노트</div>
+  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.7.2 · 릴리즈 노트</div>
 </div>
 
 <!-- 게임 모드 선택 모달 -->
@@ -389,7 +396,19 @@
     <div class="subtitle">hOyOwO/tetris · GitHub Pages</div>
 
     <div class="release-entry">
-      <div class="ver">v1.7.0 <span class="latest">LATEST</span></div>
+      <div class="ver">v1.7.2 <span class="latest">LATEST</span></div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>🐛 리더보드 중복 등록 버그 수정 — 이중 클릭/엔터 동시 입력 방지</li>
+        <li>🏷️ 리더보드 버전 표시 수정 — 게임 버전과 일치하도록 수정</li>
+        <li>⭐ 아이템이 블록 사이사이에 배치 — 쌓인 블록 틈새에 자연스럽게 등장</li>
+        <li>📉 아이템 드롭 확률 조정 — 레벨 4: 3%, 5: 2.5%, 6: 2%, 7: 1.5%, 8+: 1%</li>
+        <li>🆙 레벨업 알림 추가 — 레벨 상승 시 팝업 표시</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.7.0</div>
       <div class="date">2026-03-14</div>
       <ul>
         <li>🎮 게임 모드 선택 추가 — 노템전 vs 아이템전</li>
@@ -587,7 +606,7 @@
 <script>
 const COLS = 10, ROWS = 20;
 let BLOCK = 30;
-const GAME_VERSION = 'v1.6.2';
+const GAME_VERSION = 'v1.7.2';
 
 const COLORS = [null,'#00f0f0','#0000f0','#f0a000','#f0f000','#00f000','#a000f0','#f00000'];
 const SHAPES = [
@@ -654,12 +673,12 @@ function getDropInterval() {
 }
 
 function getItemSpawnRate(lvl) {
-  // 레벨별 아이템 드롭 확률 (낮을수록 희귀)
+  // 레벨별 아이템 드롭 확률 — 레벨이 높을수록 더 희귀
   if (lvl < ITEM_SPAWN_LEVEL) return 0;
-  if (lvl === 4) return 0.05;   // 5%
-  if (lvl === 5) return 0.04;   // 4%
-  if (lvl === 6) return 0.03;   // 3%
-  if (lvl === 7) return 0.02;   // 2%
+  if (lvl === 4) return 0.03;   // 3%
+  if (lvl === 5) return 0.025;  // 2.5%
+  if (lvl === 6) return 0.02;   // 2%
+  if (lvl === 7) return 0.015;  // 1.5%
   return 0.01;  // 8+: 1%
 }
 
@@ -909,28 +928,63 @@ function applyClearLines() {
   const pts = [0, 100, 300, 500, 800];
   score += (pts[cleared] || 800) * level;
   lines += cleared;
-  level  = Math.floor(lines / 10) + 1;
+  const newLevel = Math.floor(lines / 10) + 1;
+  if (newLevel > level) {
+    level = newLevel;
+    showLevelUpPopup(level);
+  } else {
+    level = newLevel;
+  }
   updateHUD();
+}
+
+function showLevelUpPopup(lv) {
+  const popup = document.createElement('div');
+  popup.innerHTML = `<div style="font-size:11px;letter-spacing:2px;opacity:0.85">LEVEL UP</div><div style="font-size:28px;font-weight:bold">Lv.${lv}</div>`;
+  popup.style.cssText = `
+    position: fixed; top: 30%; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg,#a000f0,#e94560);
+    color: white; padding: 14px 28px; border-radius: 10px;
+    text-align:center; z-index: 150;
+    animation: levelUpFade 1.4s ease-out forwards;
+    pointer-events: none;
+  `;
+  document.body.appendChild(popup);
+  setTimeout(() => popup.remove(), 1400);
 }
 
 function trySpawnItem() {
   if (gameMode !== 'item' || level < ITEM_SPAWN_LEVEL) return;
 
-  // 레벨별 확률로 아이템 스폰 (낮을수록 희귀)
   const spawnRate = getItemSpawnRate(level);
   if (Math.random() > spawnRate) return;
 
-  // 바닥 행에 아이템 추가 (마지막 행에 랜덤 위치에 아이템 삽입)
-  const bottomRow = ROWS - 1;
-  const itemCol = Math.floor(Math.random() * COLS);
-
-  // 아이템 종류 결정 (30% CLEAR, 70% SLOW)
-  const itemType = Math.random() < ITEM_CLEAR_PROBABILITY ? ITEM_CLEAR_TYPE : ITEM_SLOW_TYPE;
-
-  // 바닥에 빈 칸이 있으면 그곳에 아이템 추가
-  if (grid[bottomRow][itemCol] === 0) {
-    grid[bottomRow][itemCol] = itemType;
+  // 이미 블록이 쌓인 행들 중 아직 완성되지 않은 행 목록 수집
+  // → 그 행의 빈 칸에 아이템을 심어서 "블록 사이사이" 느낌
+  const candidates = [];  // [{ row, col }, ...]
+  for (let r = ROWS - 1; r >= Math.floor(ROWS / 2); r--) {
+    const filledCount = grid[r].filter(c => c !== 0).length;
+    // 일부는 채워져 있고 일부는 비어 있는 행 (2개 이상 채워져 있고 완성 안 된 행)
+    if (filledCount >= 2 && filledCount < COLS) {
+      for (let c = 0; c < COLS; c++) {
+        if (grid[r][c] === 0) candidates.push({ r, c });
+      }
+    }
   }
+
+  if (candidates.length === 0) {
+    // 후보가 없으면 바닥 빈 칸에라도 배치
+    for (let c = 0; c < COLS; c++) {
+      if (grid[ROWS - 1][c] === 0) { candidates.push({ r: ROWS - 1, c }); }
+    }
+  }
+
+  if (candidates.length === 0) return;  // 빈 칸 자체가 없으면 포기
+
+  // 후보 중 랜덤 선택
+  const { r, c } = candidates[Math.floor(Math.random() * candidates.length)];
+  // 아이템 종류 결정 (30% CLEAR, 70% SLOW)
+  grid[r][c] = Math.random() < ITEM_CLEAR_PROBABILITY ? ITEM_CLEAR_TYPE : ITEM_SLOW_TYPE;
 }
 
 function activateItem(type) {
@@ -1078,6 +1132,7 @@ function startGameWithMode(mode) {
   paused = false; gameOver = false;
   itemActive = null;  // 아이템 초기화
   itemStartTime = null;
+  isSubmitting = false;
   updateHUD();
   const startBtn = document.getElementById('startBtn');
   if (startBtn) startBtn.textContent = '재시작';
@@ -1257,10 +1312,14 @@ function renderLBTable(lb) {
     </table>`;
 }
 
+let isSubmitting = false;  // 중복 제출 방지 플래그
+
 async function submitScore() {
+  if (isSubmitting) return;  // 이미 제출 중이면 무시
   const name = document.getElementById('nm-input').value.trim();
   if (!name) { document.getElementById('nm-input').focus(); return; }
 
+  isSubmitting = true;
   // 버튼 비활성화 + 로딩 표시
   const btnSubmit = document.querySelector('.btn-submit');
   btnSubmit.disabled = true;
@@ -1274,6 +1333,7 @@ async function submitScore() {
   const ok = await saveLB(entry, lbFile);
 
   document.getElementById('name-modal').classList.remove('open');
+  isSubmitting = false;
 
   if (!ok) {
     // 저장 실패 시 재시도 안내
