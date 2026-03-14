@@ -319,7 +319,7 @@
 <!-- 하단 버튼 -->
 <div id="bottom-btns">
   <div class="bottom-btn" onclick="openLB()">🏆 리더보드</div>
-  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.5.1 · 릴리즈 노트</div>
+  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.5.2 · 릴리즈 노트</div>
 </div>
 
 <!-- 리더보드 모달 -->
@@ -761,31 +761,52 @@ const GH_RAW   = 'https://raw.githubusercontent.com/hOyOwO/tetris/main/leaderboa
 
 async function fetchLB() {
   try {
-    // raw URL은 CORS 제한 없음 + 캐시 방지용 타임스탬프
+    // 리더보드 보기용 — raw URL (CORS 무제한, 캐시 방지 타임스탬프)
     const res = await fetch(GH_RAW + '?t=' + Date.now());
     return await res.json();
   } catch { return []; }
 }
 
-async function saveLB(lb) {
-  // 1. 현재 파일 SHA 가져오기 (덮어쓰기에 필요)
-  const meta = await fetch(GH_API, {
+async function fetchLBFresh() {
+  // 저장 직전 최신 내용 읽기 — GitHub API 경유 (CDN 캐시 없음)
+  const res = await fetch(GH_API, {
     headers: { 'Authorization': 'token ' + GH_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
-  }).then(r => r.json());
-
-  const sha = meta.sha;
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify(lb, null, 2))));
-
-  // 2. 파일 업데이트
-  await fetch(GH_API, {
-    method: 'PUT',
-    headers: {
-      'Authorization': 'token ' + GH_TOKEN,
-      'Content-Type': 'application/json',
-      'Accept': 'application/vnd.github.v3+json'
-    },
-    body: JSON.stringify({ message: 'Update leaderboard', content, sha })
   });
+  const meta = await res.json();
+  // base64 디코딩 후 JSON 파싱
+  const text = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+  return { lb: JSON.parse(text), sha: meta.sha };
+}
+
+async function saveLB(newEntry) {
+  try {
+    // 1. 항상 GitHub API로 최신 데이터 + SHA 동시에 가져오기
+    const { lb, sha } = await fetchLBFresh();
+
+    // 2. 새 항목 추가 → 정렬 → TOP 10
+    lb.push(newEntry);
+    lb.sort((a, b) => b.score - a.score);
+    const top10 = lb.slice(0, 10);
+
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(top10, null, 2))));
+
+    // 3. 파일 업데이트
+    const putRes = await fetch(GH_API, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'token ' + GH_TOKEN,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json'
+      },
+      body: JSON.stringify({ message: 'Update leaderboard', content, sha })
+    });
+
+    if (!putRes.ok) throw new Error('PUT failed: ' + putRes.status);
+    return true;
+  } catch (err) {
+    console.error('리더보드 저장 실패:', err);
+    return false;
+  }
 }
 
 async function openLB() {
@@ -818,14 +839,31 @@ function renderLB(lb) {
 async function submitScore() {
   const name = document.getElementById('nm-input').value.trim();
   if (!name) { document.getElementById('nm-input').focus(); return; }
-  document.getElementById('name-modal').classList.remove('open');
-  // 등록
-  const lb = await fetchLB();
+
+  // 버튼 비활성화 + 로딩 표시
+  const btnSubmit = document.querySelector('.btn-submit');
+  btnSubmit.disabled = true;
+  btnSubmit.textContent = '등록 중...';
+
   const today = new Date().toLocaleDateString('ko-KR', {month:'2-digit', day:'2-digit'}).replace('. ','월 ').replace('.','일');
-  lb.push({ name, score, level, date: today });
-  lb.sort((a,b) => b.score - a.score);
-  const top10 = lb.slice(0, 10);
-  await saveLB(top10);
+  const entry = { name, score, level, date: today };
+
+  const ok = await saveLB(entry);
+
+  document.getElementById('name-modal').classList.remove('open');
+
+  if (!ok) {
+    // 저장 실패 시 재시도 안내
+    const msg = document.getElementById('message');
+    msg.innerHTML = `
+      <h2>저장 실패</h2>
+      <p style="margin-bottom:16px">리더보드 등록에 실패했어요.<br>잠시 후 다시 시도해 주세요.</p>
+      <button class="btn" style="margin-bottom:8px" onclick="startGame()">다시 시작</button>
+    `;
+    msg.style.display = 'block';
+    return;
+  }
+
   showGameOverMsg();
 }
 
