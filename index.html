@@ -131,10 +131,15 @@
       .mobile-hud { display: block; }
     }
 
-    /* ── 버전 뱃지 ── */
-    #version-badge {
+    /* ── 하단 고정 버튼들 ── */
+    #bottom-btns {
       position: fixed;
       bottom: 10px; right: 12px;
+      display: flex;
+      gap: 6px;
+      z-index: 100;
+    }
+    .bottom-btn {
       background: #16213e;
       border: 1px solid #e94560;
       border-radius: 20px;
@@ -142,12 +147,12 @@
       font-size: 11px;
       color: #e94560;
       cursor: pointer;
-      z-index: 100;
       letter-spacing: 0.5px;
       transition: background 0.15s;
       -webkit-tap-highlight-color: transparent;
+      white-space: nowrap;
     }
-    #version-badge:hover { background: #e94560; color: #fff; }
+    .bottom-btn:hover { background: #e94560; color: #fff; }
 
     /* ── 릴리즈 노트 모달 ── */
     #release-modal {
@@ -228,13 +233,116 @@
       -webkit-tap-highlight-color: transparent;
     }
     .release-close:active { background: #c73652; }
+
+    /* ── 리더보드 모달 ── */
+    #lb-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    #lb-modal.open { display: flex; }
+    .lb-box {
+      background: #16213e;
+      border: 2px solid #e94560;
+      border-radius: 14px;
+      width: 100%; max-width: 360px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    .lb-box h2 { color: #e94560; font-size: 20px; margin-bottom: 16px; }
+    .lb-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    .lb-table th {
+      font-size: 11px; color: #e94560; text-transform: uppercase;
+      letter-spacing: 1px; padding: 4px 6px; border-bottom: 1px solid #e9456044;
+      text-align: left;
+    }
+    .lb-table td { padding: 8px 6px; font-size: 14px; color: #ccc; border-bottom: 1px solid #ffffff11; }
+    .lb-table tr:first-child td { color: #ffd700; font-weight: bold; }
+    .lb-table tr:nth-child(2) td { color: #c0c0c0; font-weight: bold; }
+    .lb-table tr:nth-child(3) td { color: #cd7f32; font-weight: bold; }
+    .lb-rank { color: #666; font-size: 12px; width: 28px; }
+    .lb-score { text-align: right; font-variant-numeric: tabular-nums; }
+    .lb-loading { text-align: center; color: #666; padding: 20px; font-size: 14px; }
+    .lb-empty   { text-align: center; color: #555; padding: 20px; font-size: 13px; }
+
+    /* 닉네임 입력 (게임오버 후) */
+    #name-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 300;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    #name-modal.open { display: flex; }
+    .name-box {
+      background: #16213e;
+      border: 2px solid #e94560;
+      border-radius: 14px;
+      padding: 28px 24px;
+      width: 100%; max-width: 320px;
+      text-align: center;
+    }
+    .name-box h2 { color: #e94560; font-size: 20px; margin-bottom: 6px; }
+    .name-box .final-score { font-size: 28px; font-weight: bold; color: #fff; margin-bottom: 16px; }
+    .name-box input {
+      width: 100%; padding: 10px 14px;
+      background: #0f0f1a; border: 1px solid #e94560;
+      border-radius: 8px; color: #fff; font-size: 16px;
+      margin-bottom: 12px; outline: none;
+      -webkit-appearance: none;
+    }
+    .name-box input::placeholder { color: #555; }
+    .name-box .btn-row { display: flex; gap: 8px; }
+    .name-box .btn-row button {
+      flex: 1; padding: 10px;
+      border: none; border-radius: 8px;
+      font-size: 14px; font-weight: bold; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-submit { background: #e94560; color: #fff; }
+    .btn-submit:active { background: #c73652; }
+    .btn-skip   { background: #333; color: #aaa; }
+    .btn-skip:active { background: #444; }
   </style>
 </head>
 <body>
 
-<!-- 버전 뱃지 -->
-<div id="version-badge" onclick="document.getElementById('release-modal').classList.add('open')">
-  v1.4.0 · 릴리즈 노트
+<!-- 하단 버튼 -->
+<div id="bottom-btns">
+  <div class="bottom-btn" onclick="openLB()">🏆 리더보드</div>
+  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.5.0 · 릴리즈 노트</div>
+</div>
+
+<!-- 리더보드 모달 -->
+<div id="lb-modal">
+  <div class="lb-box">
+    <h2>🏆 리더보드 TOP 10</h2>
+    <div id="lb-content"><div class="lb-loading">불러오는 중...</div></div>
+    <button class="release-close" onclick="document.getElementById('lb-modal').classList.remove('open')">닫기</button>
+  </div>
+</div>
+
+<!-- 닉네임 입력 모달 (게임오버 후) -->
+<div id="name-modal">
+  <div class="name-box">
+    <h2>🎮 게임 오버</h2>
+    <div class="final-score" id="nm-score">0</div>
+    <p style="color:#aaa;font-size:13px;margin-bottom:14px">리더보드에 이름을 남기세요!</p>
+    <input id="nm-input" type="text" maxlength="12" placeholder="닉네임 입력 (최대 12자)" />
+    <div class="btn-row">
+      <button class="btn-submit" onclick="submitScore()">등록</button>
+      <button class="btn-skip"   onclick="skipScore()">건너뛰기</button>
+    </div>
+  </div>
 </div>
 
 <!-- 릴리즈 노트 모달 -->
@@ -244,7 +352,17 @@
     <div class="subtitle">hOyOwO/tetris · GitHub Pages</div>
 
     <div class="release-entry">
-      <div class="ver">v1.4.0 <span class="latest">LATEST</span></div>
+      <div class="ver">v1.5.0 <span class="latest">LATEST</span></div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>공유 리더보드 추가 — 전체 참여자 TOP 10 순위 표시</li>
+        <li>게임 오버 후 닉네임 입력으로 점수 등록 가능</li>
+        <li>리더보드 버튼 추가 (하단 고정)</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.4.0</div>
       <div class="date">2026-03-14</div>
       <ul>
         <li>락 딜레이(Lock Delay) 추가 — 바닥 닿은 후 500ms 동안 이동·회전 가능</li>
@@ -608,15 +726,99 @@ function startGame() {
 
 function endGame() {
   stopLoop(); gameOver = true;
+  // 점수가 0이면 등록 안 함
+  if (score === 0) {
+    showGameOverMsg(); return;
+  }
+  // 닉네임 입력 모달
+  document.getElementById('nm-score').textContent = score.toLocaleString() + '점';
+  document.getElementById('nm-input').value = '';
+  document.getElementById('name-modal').classList.add('open');
+  setTimeout(() => document.getElementById('nm-input').focus(), 100);
+}
+
+function showGameOverMsg() {
   const msg = document.getElementById('message');
   msg.innerHTML = `
     <h2>게임 오버</h2>
-    <p>최종 점수: <strong style="color:#e94560">${score}</strong></p>
+    <p>최종 점수: <strong style="color:#e94560">${score.toLocaleString()}</strong></p>
     <p style="margin-bottom:20px">레벨: ${level} | 줄: ${lines}</p>
-    <button class="btn" onclick="startGame()">다시 시작</button>
+    <button class="btn" style="margin-bottom:8px" onclick="startGame()">다시 시작</button>
+    <button class="btn" style="background:#16213e;border:1px solid #e94560" onclick="openLB()">🏆 리더보드 보기</button>
   `;
   msg.style.display = 'block';
 }
+
+/* ── 리더보드 API ── */
+const BLOB_ID = '019cea7b-3617-7860-b1b7-9d61fd16cf77';
+const BLOB_URL = `https://jsonblob.com/api/jsonBlob/${BLOB_ID}`;
+
+async function fetchLB() {
+  try {
+    const res = await fetch(BLOB_URL);
+    const data = await res.json();
+    return data.leaderboard || [];
+  } catch { return []; }
+}
+
+async function saveLB(lb) {
+  await fetch(BLOB_URL, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ leaderboard: lb })
+  });
+}
+
+async function openLB() {
+  document.getElementById('lb-modal').classList.add('open');
+  document.getElementById('lb-content').innerHTML = '<div class="lb-loading">불러오는 중...</div>';
+  const lb = await fetchLB();
+  renderLB(lb);
+}
+
+function renderLB(lb) {
+  const medals = ['🥇','🥈','🥉'];
+  if (!lb.length) {
+    document.getElementById('lb-content').innerHTML = '<div class="lb-empty">아직 등록된 점수가 없어요.<br>첫 번째 주인공이 되어보세요!</div>';
+    return;
+  }
+  const rows = lb.map((e, i) => `
+    <tr>
+      <td class="lb-rank">${medals[i] || (i+1)}</td>
+      <td>${e.name}</td>
+      <td class="lb-score">${e.score.toLocaleString()}</td>
+      <td style="font-size:11px;color:#555;text-align:right">${e.date}</td>
+    </tr>`).join('');
+  document.getElementById('lb-content').innerHTML = `
+    <table class="lb-table">
+      <thead><tr><th>#</th><th>이름</th><th style="text-align:right">점수</th><th style="text-align:right">날짜</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function submitScore() {
+  const name = document.getElementById('nm-input').value.trim();
+  if (!name) { document.getElementById('nm-input').focus(); return; }
+  document.getElementById('name-modal').classList.remove('open');
+  // 등록
+  const lb = await fetchLB();
+  const today = new Date().toLocaleDateString('ko-KR', {month:'2-digit', day:'2-digit'}).replace('. ','월 ').replace('.','일');
+  lb.push({ name, score, level, date: today });
+  lb.sort((a,b) => b.score - a.score);
+  const top10 = lb.slice(0, 10);
+  await saveLB(top10);
+  showGameOverMsg();
+}
+
+function skipScore() {
+  document.getElementById('name-modal').classList.remove('open');
+  showGameOverMsg();
+}
+
+// 엔터키로 닉네임 제출
+document.getElementById('nm-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitScore();
+});
 
 /* ── 키보드 ── */
 document.addEventListener('keydown', e => {
