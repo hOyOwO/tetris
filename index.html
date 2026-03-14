@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>테트리스 v1.6.2</title>
+  <title>테트리스 v1.7.0</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -271,6 +271,19 @@
     .lb-loading { text-align: center; color: #666; padding: 20px; font-size: 14px; }
     .lb-empty   { text-align: center; color: #555; padding: 20px; font-size: 13px; }
 
+    /* 게임 모드 선택 */
+    #mode-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 300;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    #mode-modal.open { display: flex; }
+
     /* 닉네임 입력 (게임오버 후) */
     #name-modal {
       display: none;
@@ -312,6 +325,12 @@
     .btn-submit:active { background: #c73652; }
     .btn-skip   { background: #333; color: #aaa; }
     .btn-skip:active { background: #444; }
+
+    /* 아이템 팝업 애니메이션 */
+    @keyframes popupFade {
+      0% { opacity: 1; transform: translateX(-50%) scale(1); }
+      100% { opacity: 0; transform: translateX(-50%) scale(0.8); }
+    }
   </style>
 </head>
 <body>
@@ -319,7 +338,25 @@
 <!-- 하단 버튼 -->
 <div id="bottom-btns">
   <div class="bottom-btn" onclick="openLB()">🏆 리더보드</div>
-  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.6.2 · 릴리즈 노트</div>
+  <div class="bottom-btn" onclick="document.getElementById('release-modal').classList.add('open')">v1.7.0 · 릴리즈 노트</div>
+</div>
+
+<!-- 게임 모드 선택 모달 -->
+<div id="mode-modal">
+  <div class="name-box" style="max-width: 340px;">
+    <h2>🎮 게임 모드 선택</h2>
+    <p style="color:#aaa;font-size:13px;margin-bottom:20px">어떤 모드로 플레이할까요?</p>
+    <div class="btn-row" style="flex-direction: column; gap: 12px;">
+      <button class="btn" style="background: #e94560; color: #fff;" onclick="startGameWithMode('noItem')">
+        <strong>🎯 노템전</strong><br>
+        <small style="font-size: 11px; opacity: 0.9;">순수한 테트리스</small>
+      </button>
+      <button class="btn" style="background: #a000f0; color: #fff;" onclick="startGameWithMode('item')">
+        <strong>⚡ 아이템전</strong><br>
+        <small style="font-size: 11px; opacity: 0.9;">레벨 4부터 아이템 드롭</small>
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- 리더보드 모달 -->
@@ -352,7 +389,20 @@
     <div class="subtitle">hOyOwO/tetris · GitHub Pages</div>
 
     <div class="release-entry">
-      <div class="ver">v1.6.2 <span class="latest">LATEST</span></div>
+      <div class="ver">v1.7.0 <span class="latest">LATEST</span></div>
+      <div class="date">2026-03-14</div>
+      <ul>
+        <li>🎮 게임 모드 선택 추가 — 노템전 vs 아이템전</li>
+        <li>⚡ 아이템 시스템 구현 (레벨 4부터)</li>
+        <li>⏱️ 슬로우 아이템 — 10초간 블록 3배 느려짐</li>
+        <li>💥 클리어 아이템 — 매우 낮은 확률로 전체 그리드 초기화</li>
+        <li>👻 고스트 피스 제거 — 레벨 3부터 미표시</li>
+        <li>📊 리더보드 분리 — 노템전/아이템전 탭 구분</li>
+      </ul>
+    </div>
+
+    <div class="release-entry">
+      <div class="ver">v1.6.2</div>
       <div class="date">2026-03-14</div>
       <ul>
         <li>다줄 클리어 버그 완전 수정 — grid 명시적 재구성으로 행 잔류 현상 제거</li>
@@ -560,6 +610,16 @@ const nmctx = nextMobileEl ? nextMobileEl.getContext('2d') : null;
 
 let grid, piece, nextPiece, score, level, lines;
 let paused = false, gameOver = true;
+let gameMode = null;  // 'noItem' or 'item'
+
+// 아이템 시스템
+let itemActive = null;       // null, 'slow', 'clear'
+let itemStartTime = null;    // 아이템 시작 시간
+const ITEM_SLOW_DURATION = 10000;  // 10초 (ms)
+const ITEM_SLOW_RATE = 0.3;  // 원래 속도의 30% = 3배 느림
+const ITEM_SPAWN_LEVEL = 4;  // 레벨 4부터 아이템 드롭
+const ITEM_SPAWN_RATE = 0.15;  // 15% 확률로 아이템 드롭
+const ITEM_CLEAR_RATE = 0.05; // 5%: 드롭된 아이템 중 5%가 CLEAR (15% * 5% = 0.75%)
 
 // RAF 기반 게임 루프
 let rafId = null;
@@ -576,7 +636,19 @@ const CLEAR_DURATION = 180; // ms
 let clearingRows  = [];     // 지우는 행 인덱스 배열
 let clearingStart = null;   // 애니메이션 시작 타임스탬프
 
-function getDropInterval() { return Math.max(80, 800 - (level - 1) * 70); }
+function getDropInterval() {
+  let interval = Math.max(80, 800 - (level - 1) * 70);
+  // 슬로우 아이템 활성화 중이면 느려짐
+  if (itemActive === 'slow' && itemStartTime) {
+    const elapsed = performance.now() - itemStartTime;
+    if (elapsed < ITEM_SLOW_DURATION) {
+      interval /= ITEM_SLOW_RATE;  // 3배 느려짐
+    } else {
+      itemActive = null;  // 효과 종료
+    }
+  }
+  return interval;
+}
 
 /* ── 반응형 크기 ── */
 function resizeCanvas() {
@@ -674,16 +746,19 @@ function render() {
     }
   }
 
-  // 고스트 + 현재 피스 (애니메이션 중엔 숨김)
+  // 고스트 + 현재 피스 (애니메이션 중엔 숨김, 레벨 3부터는 고스트 숨김)
   if (piece && clearingRows.length === 0) {
-    let gy = piece.y;
-    while (!collide(piece.x, gy+1, piece.shape)) gy++;
-    piece.shape.forEach((row,r) => row.forEach((cell,c) => {
-      if (cell) {
-        ctx.fillStyle = COLORS[piece.id] + '44';
-        ctx.fillRect((piece.x+c)*BLOCK+1, (gy+r)*BLOCK+1, BLOCK-2, BLOCK-2);
-      }
-    }));
+    // 고스트 피스는 레벨 3 미만일 때만 표시
+    if (level < 3) {
+      let gy = piece.y;
+      while (!collide(piece.x, gy+1, piece.shape)) gy++;
+      piece.shape.forEach((row,r) => row.forEach((cell,c) => {
+        if (cell) {
+          ctx.fillStyle = COLORS[piece.id] + '44';
+          ctx.fillRect((piece.x+c)*BLOCK+1, (gy+r)*BLOCK+1, BLOCK-2, BLOCK-2);
+        }
+      }));
+    }
     piece.shape.forEach((row,r) => row.forEach((cell,c) => {
       if (cell) drawBlock(ctx, piece.x+c, piece.y+r, COLORS[piece.id]);
     }));
@@ -778,6 +853,47 @@ function applyClearLines() {
   updateHUD();
 }
 
+function trySpawnItem() {
+  if (gameMode !== 'item' || level < ITEM_SPAWN_LEVEL) return;
+  if (Math.random() > ITEM_SPAWN_RATE) return;
+
+  // 아이템 종류 결정 (5% 확률로 CLEAR, 95%로 SLOW)
+  if (Math.random() < ITEM_CLEAR_RATE) {
+    activateItem('clear');
+  } else {
+    activateItem('slow');
+  }
+}
+
+function activateItem(type) {
+  itemActive = type;
+  itemStartTime = performance.now();
+
+  if (type === 'slow') {
+    showItemPopup('⏱️ 블록이 느려져요! (10초)');
+  } else if (type === 'clear') {
+    showItemPopup('💥 전체 초기화!');
+    // 즉시 실행
+    grid = createGrid();
+    lines = 0;
+    score += 2000 * level;  // 클리어 보너스
+    updateHUD();
+  }
+}
+
+function showItemPopup(message) {
+  const popup = document.createElement('div');
+  popup.textContent = message;
+  popup.style.cssText = `
+    position: fixed; top: 20%; left: 50%; transform: translateX(-50%);
+    background: #e94560; color: white; padding: 16px 24px;
+    border-radius: 8px; font-size: 16px; font-weight: bold;
+    z-index: 150; animation: popupFade 1s ease-out forwards;
+  `;
+  document.body.appendChild(popup);
+  setTimeout(() => popup.remove(), 2000);
+}
+
 function spawnNext() {
   piece = nextPiece;
   nextPiece = randomPiece();
@@ -785,6 +901,8 @@ function spawnNext() {
   lockTimer  = null;
   lockResets = 0;
   if (collide(piece.x, piece.y, piece.shape)) { endGame(); return false; }
+  // 피스 고정 후 아이템 드롭 시도
+  trySpawnItem();
   return true;
 }
 
@@ -878,10 +996,20 @@ function stopLoop() {
 
 /* ── 게임 시작 / 종료 ── */
 function startGame() {
+  // 게임 모드 선택 모달 띄우기
+  document.getElementById('mode-modal').classList.add('open');
+}
+
+function startGameWithMode(mode) {
+  gameMode = mode;  // 모드 저장
+  document.getElementById('mode-modal').classList.remove('open');
+
   document.getElementById('message').style.display = 'none';
   grid = createGrid();
   score = 0; level = 1; lines = 0;
   paused = false; gameOver = false;
+  itemActive = null;  // 아이템 초기화
+  itemStartTime = null;
   updateHUD();
   const startBtn = document.getElementById('startBtn');
   if (startBtn) startBtn.textContent = '재시작';
@@ -897,7 +1025,8 @@ function endGame() {
 
   // 닉네임 입력 모달을 띄우는 동시에 → 백그라운드에서 SHA 미리 가져오기
   // 유저가 이름 타이핑하는 동안 이미 준비 완료 → 등록 버튼 즉시 반응
-  prefetchPromise = fetchLBFresh();
+  const lbFile = getLeaderboardFilename(gameMode);
+  prefetchPromise = fetchLBFresh(lbFile);
 
   document.getElementById('nm-score').textContent = score.toLocaleString() + '점';
   document.getElementById('nm-input').value = '';
@@ -924,12 +1053,16 @@ const GH_TOKEN = String.fromCharCode(
   55,122,99,117,84,118,115,51,79,88,
   99,107,105,84,51,55,87,55,122,84
 );
-const GH_API = 'https://api.github.com/repos/hOyOwO/tetris/contents/leaderboard.json';
 
-// 게임 오버 시 미리 받아둘 캐시
+// 게임 오버 시 미리 받아둘 캐시 (모드별)
 let prefetchPromise = null;
 
-async function fetchLBFresh() {
+function getLeaderboardFilename(mode) {
+  return mode === 'item' ? 'leaderboard-item.json' : 'leaderboard-no-item.json';
+}
+
+async function fetchLBFresh(filename) {
+  const GH_API = `https://api.github.com/repos/hOyOwO/tetris/contents/${filename}`;
   const res = await fetch(GH_API, {
     headers: { 'Authorization': 'token ' + GH_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
   });
@@ -938,11 +1071,13 @@ async function fetchLBFresh() {
   return { lb: JSON.parse(text), sha: meta.sha };
 }
 
-async function saveLB(newEntry) {
+async function saveLB(newEntry, filename) {
   try {
+    const GH_API = `https://api.github.com/repos/hOyOwO/tetris/contents/${filename}`;
     // 미리 받아둔 캐시 사용 → 없으면 지금 요청
-    const { lb, sha } = await (prefetchPromise || fetchLBFresh());
+    const cached = await (prefetchPromise || fetchLBFresh(filename));
     prefetchPromise = null;
+    const { lb, sha } = cached;
 
     lb.push(newEntry);
     lb.sort((a, b) => b.score - a.score);
@@ -961,7 +1096,7 @@ async function saveLB(newEntry) {
 
     // SHA 충돌 시 1회 재시도
     if (putRes.status === 409) {
-      const { lb: lb2, sha: sha2 } = await fetchLBFresh();
+      const { lb: lb2, sha: sha2 } = await fetchLBFresh(filename);
       lb2.push(newEntry);
       lb2.sort((a, b) => b.score - a.score);
       const content2 = btoa(unescape(encodeURIComponent(JSON.stringify(lb2.slice(0, 10), null, 2))));
@@ -983,20 +1118,61 @@ async function saveLB(newEntry) {
 
 async function openLB() {
   document.getElementById('lb-modal').classList.add('open');
-  document.getElementById('lb-content').innerHTML = '<div class="lb-loading">불러오는 중...</div>';
+  const content = document.getElementById('lb-content');
+  content.innerHTML = '<div class="lb-loading">불러오는 중...</div>';
+
   try {
-    const { lb } = await fetchLBFresh();
-    renderLB(lb);
-  } catch {
-    renderLB([]);
+    const lb1 = await fetchLBFresh('leaderboard-no-item.json').catch(() => ({ lb: [] }));
+    const lb2 = await fetchLBFresh('leaderboard-item.json').catch(() => ({ lb: [] }));
+
+    // 탭 UI + 콘텐츠
+    content.innerHTML = `
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <button id="lb-tab-noitem" class="lb-tab active" onclick="switchLBTab('noitem')" style="flex: 1; padding: 8px 12px; border: 1px solid #e94560; background: #e94560; color: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold;">🎯 노템전</button>
+        <button id="lb-tab-item" class="lb-tab" onclick="switchLBTab('item')" style="flex: 1; padding: 8px 12px; border: 1px solid #555; background: transparent; color: #888; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold;">⚡ 아이템전</button>
+      </div>
+      <div id="lb-tables">
+        <div id="lb-table-noitem">${renderLBTable(lb1.lb)}</div>
+        <div id="lb-table-item" style="display: none;">${renderLBTable(lb2.lb)}</div>
+      </div>
+    `;
+  } catch (err) {
+    content.innerHTML = '<div class="lb-loading">리더보드를 불러올 수 없습니다.</div>';
   }
 }
 
-function renderLB(lb) {
+function switchLBTab(tab) {
+  // 탭 버튼 스타일 변경
+  const btnNoitem = document.getElementById('lb-tab-noitem');
+  const btnItem = document.getElementById('lb-tab-item');
+  const tableNoitem = document.getElementById('lb-table-noitem');
+  const tableItem = document.getElementById('lb-table-item');
+
+  if (tab === 'noitem') {
+    btnNoitem.style.background = '#e94560';
+    btnNoitem.style.color = '#fff';
+    btnNoitem.style.borderColor = '#e94560';
+    btnItem.style.background = 'transparent';
+    btnItem.style.color = '#888';
+    btnItem.style.borderColor = '#555';
+    tableNoitem.style.display = 'block';
+    tableItem.style.display = 'none';
+  } else {
+    btnNoitem.style.background = 'transparent';
+    btnNoitem.style.color = '#888';
+    btnNoitem.style.borderColor = '#555';
+    btnItem.style.background = '#e94560';
+    btnItem.style.color = '#fff';
+    btnItem.style.borderColor = '#e94560';
+    tableNoitem.style.display = 'none';
+    tableItem.style.display = 'block';
+  }
+}
+
+function renderLBTable(lb) {
   const medals = ['🥇','🥈','🥉'];
-  if (!lb.length) {
-    document.getElementById('lb-content').innerHTML = '<div class="lb-empty">아직 등록된 점수가 없어요.<br>첫 번째 주인공이 되어보세요!</div>';
-    return;
+  if (!lb || !lb.length) {
+    return '<div class="lb-empty">아직 등록된 점수가 없어요.<br>첫 번째 주인공이 되어보세요!</div>';
   }
   const rows = lb.map((e, i) => `
     <tr>
@@ -1006,7 +1182,7 @@ function renderLB(lb) {
       <td style="font-size:11px;color:#888;text-align:right">${e.ver || '-'}</td>
       <td style="font-size:11px;color:#555;text-align:right">${e.date}</td>
     </tr>`).join('');
-  document.getElementById('lb-content').innerHTML = `
+  return `
     <table class="lb-table">
       <thead><tr><th>#</th><th>이름</th><th style="text-align:right">점수</th><th style="text-align:right">버전</th><th style="text-align:right">날짜</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -1025,7 +1201,9 @@ async function submitScore() {
   const today = new Date().toLocaleDateString('ko-KR', {month:'2-digit', day:'2-digit'}).replace('. ','월 ').replace('.','일');
   const entry = { name, score, level, date: today, ver: GAME_VERSION };
 
-  const ok = await saveLB(entry);
+  // 게임 모드에 맞는 리더보드 파일에 저장
+  const lbFile = getLeaderboardFilename(gameMode);
+  const ok = await saveLB(entry, lbFile);
 
   document.getElementById('name-modal').classList.remove('open');
 
